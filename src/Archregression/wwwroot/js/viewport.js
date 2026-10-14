@@ -1,4 +1,4 @@
-/**
+﻿/**
  * wwwroot/js/viewport.js
  * ======================
  * Three.js 3D Spatial Viewer with Dynamic Topography & Variable Site Context:
@@ -48,7 +48,20 @@ export class SpatialViewport {
     this.showSpatialGraph = true;
     this.showWireframe = false;
     this.plantTreeToolActive = false;
-    this.sitePreset = 'ocean'; // 'ocean' | 'mountain' | 'lake' | 'forest' | 'urban' | 'studio' | 'custom'
+    this.sitePreset = 'ocean';
+    this.elevationGrid = [
+      22.0, 22.0, 17.0, 15.0, 15.0, 14.0, 14.0, 26.0, 37.0,
+      17.0, 17.0, 11.0, 10.0, 10.0, 6.0, 6.0, 6.0, 9.0,
+      17.0, 17.0, 11.0, 10.0, 10.0, 6.0, 6.0, 6.0, 9.0,
+      8.0, 8.0, 7.0, 6.0, 6.0, 4.0, 4.0, 2.0, 3.0,
+      8.0, 8.0, 7.0, 6.0, 6.0, 4.0, 4.0, 2.0, 3.0,
+      4.0, 4.0, 3.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0,
+      4.0, 4.0, 3.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0,
+      3.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+      3.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+    ];
+    this.centerElevation = 6.0;
+    this.elevationExaggeration = 1.0;
 
     // Environmental Parameters (Supports both Map-Detected & Custom Site Sliders)
     this.envParams = {
@@ -187,9 +200,43 @@ export class SpatialViewport {
   }
 
   /**
+   * 2D Bilinear Interpolation over satellite DEM elevation grid
+   */
+  sampleDEM(uNorm, vNorm) {
+    if (!this.elevationGrid || this.elevationGrid.length < 9) return 0;
+    const dim = Math.round(Math.sqrt(this.elevationGrid.length));
+    const uClamped = Math.max(0, Math.min(1, uNorm));
+    const vClamped = Math.max(0, Math.min(1, vNorm));
+    const gx = uClamped * (dim - 1);
+    const gz = vClamped * (dim - 1);
+    const j0 = Math.floor(gx);
+    const j1 = Math.min(dim - 1, j0 + 1);
+    const i0 = Math.floor(gz);
+    const i1 = Math.min(dim - 1, i0 + 1);
+    const tx = gx - j0;
+    const tz = gz - i0;
+    const e00 = this.elevationGrid[i0 * dim + j0];
+    const e10 = this.elevationGrid[i0 * dim + j1];
+    const e01 = this.elevationGrid[i1 * dim + j0];
+    const e11 = this.elevationGrid[i1 * dim + j1];
+    return (1 - tx) * (1 - tz) * e00 + tx * (1 - tz) * e10 + (1 - tx) * tz * e01 + tx * tz * e11;
+  }
+
+  /**
    * Applies rich geographic site data from map selection or presets
    */
   applySiteData(site) {
+    if (site.elevationGrid && site.elevationGrid.length >= 9) {
+      this.elevationGrid = site.elevationGrid;
+    }
+    if (site.centerElevation !== undefined) {
+      this.centerElevation = site.centerElevation;
+    } else if (site.elevation !== undefined) {
+      this.centerElevation = site.elevation;
+    }
+    if (site.elevationExaggeration !== undefined) {
+      this.elevationExaggeration = site.elevationExaggeration;
+    }
     this.sitePreset = site.preset || 'custom';
     this.envParams.site_preset = this.sitePreset;
     if (site.mountainHeight !== undefined) this.envParams.mountain_height = site.mountainHeight;
@@ -298,76 +345,75 @@ export class SpatialViewport {
       const parcelFlatten = THREE.MathUtils.smoothstep(distFromCenter, 13.0, 26.0);
 
       let elevation = 0;
+      let absElev = this.centerElevation;
+      const hasRealDEM = this.elevationGrid && this.elevationGrid.length >= 9;
 
-      if (preset === 'mountain' || (preset === 'custom' && mHeight > 10)) {
-        // Alpine mountain ridge with multi-octave crags
+      if (hasRealDEM) {
+        // Satellite DEM Bilinear Sampling across parcel
+        const u = (x + terrainSize / 2) / terrainSize;
+        const v = (z + terrainSize / 2) / terrainSize;
+        absElev = this.sampleDEM(u, v);
+        const relElev = (absElev - this.centerElevation) * (this.elevationExaggeration || 1.0);
+        elevation = relElev * parcelFlatten;
+      } else if (preset === 'mountain' || (preset === 'custom' && mHeight > 10)) {
         const ridge1 = Math.abs(Math.sin(x * 0.045 + 1.2) * Math.cos(z * 0.038)) * mHeight;
         const crags = Math.sin(x * 0.11) * Math.cos(z * 0.12) * (mHeight * 0.28 * rugged);
         const slopeGrad = (z * dirZ + x * dirX) * (slope * 0.035);
         elevation = (ridge1 + crags + slopeGrad) * parcelFlatten;
       } else if (preset === 'ocean' || waterType === 'ocean') {
-        // Coastal bluff perched above ocean
         const bluffHeight = Math.max(4.0, slope * 0.6);
-        const coastalIncline = (z * 0.18 + x * 0.06);
-        // Drops down towards South (-Z) into sea
         const shoreDrop = Math.max(-1.8, Math.min(bluffHeight, (z + waterProx) * 0.22));
         const wavesShore = Math.sin(x * 0.08) * 0.8;
         elevation = (shoreDrop + wavesShore) * parcelFlatten;
       } else if (preset === 'lake' || waterType === 'lake') {
-        // Lake basin cupping the water with surrounding knolls
         const distFromLake = Math.sqrt(x * x + Math.pow(z + waterProx, 2));
         const lakeShore = Math.min(12.0, Math.max(-1.2, (distFromLake - 18) * 0.22));
         const undulation = Math.sin(x * 0.06) * Math.cos(z * 0.06) * (mHeight * 0.4);
         elevation = (lakeShore + undulation) * parcelFlatten;
       } else if (preset === 'forest') {
-        // Rolling forest terrain
         const undulation = Math.sin(x * 0.08) * Math.cos(z * 0.07) * 4.2 + (z * dirZ * 0.1);
         elevation = undulation * parcelFlatten;
       } else if (preset === 'urban') {
         elevation = 0;
       } else {
-        // Custom generic slope
         elevation = ((z * dirZ + x * dirX) * (slope * 0.03)) * parcelFlatten;
       }
 
       pos.setY(i, elevation - 0.25);
 
-      // Vertex color painting based on elevation, slope, and biome
-      let r = 0.18, g = 0.28, b = 0.18; // Default grass
+      // Vertex color painting based on real elevation & local slope
+      let r = 0.18, g = 0.30, b = 0.16;
 
-      if (preset === 'mountain' || (preset === 'custom' && mHeight > 14)) {
-        if (elevation > 16.0) {
-          // Glacier snow caps
-          r = 0.88; g = 0.92; b = 0.98;
-        } else if (elevation > 8.0) {
+      if (hasRealDEM) {
+        if (absElev > 2400.0) {
+          // Glacier snow caps & frost
+          r = 0.90; g = 0.93; b = 0.98;
+        } else if (absElev > 1300.0) {
           // Alpine slate / granite rock
           r = 0.38; g = 0.42; b = 0.46;
-        } else {
-          // Alpine meadow grass
+        } else if (absElev <= 2.0 && waterType === 'ocean') {
+          // Coastal sand dunes & beach
+          r = 0.78; g = 0.70; b = 0.52;
+        } else if (biome === 'alpine') {
           r = 0.20; g = 0.35; b = 0.22;
+        } else if (biome === 'coastal') {
+          r = 0.28; g = 0.38; b = 0.24;
         }
-      } else if (preset === 'ocean' || waterType === 'ocean') {
-        if (elevation < 0.2) {
-          // Wet shoreline sand
-          r = 0.72; g = 0.62; b = 0.44;
-        } else if (elevation < 2.0) {
-          // Coastal sand dunes
-          r = 0.82; g = 0.74; b = 0.55;
-        } else {
-          // Coastal bluff cliff & scrub
-          r = 0.30; g = 0.40; b = 0.25;
+      } else {
+        if (preset === 'mountain') {
+          if (elevation > 16.0) { r = 0.88; g = 0.92; b = 0.98; }
+          else if (elevation > 8.0) { r = 0.38; g = 0.42; b = 0.46; }
+          else { r = 0.20; g = 0.35; b = 0.22; }
+        } else if (preset === 'ocean' || waterType === 'ocean') {
+          if (elevation < 0.2) { r = 0.72; g = 0.62; b = 0.44; }
+          else if (elevation < 2.0) { r = 0.82; g = 0.74; b = 0.55; }
+          else { r = 0.30; g = 0.40; b = 0.25; }
+        } else if (preset === 'lake' || waterType === 'lake') {
+          if (elevation < 0.3) { r = 0.55; g = 0.55; b = 0.52; }
+          else { r = 0.16; g = 0.34; b = 0.20; }
+        } else if (preset === 'forest') {
+          r = 0.11; g = 0.26; b = 0.13;
         }
-      } else if (preset === 'lake' || waterType === 'lake') {
-        if (elevation < 0.3) {
-          // Lake pebble shoreline
-          r = 0.55; g = 0.55; b = 0.52;
-        } else {
-          // Freshwater riparian grass
-          r = 0.16; g = 0.34; b = 0.20;
-        }
-      } else if (preset === 'forest') {
-        // Deep forest loam & moss
-        r = 0.11; g = 0.26; b = 0.13;
       }
 
       colors[i * 3] = r;
@@ -607,6 +653,13 @@ export class SpatialViewport {
     if (!this.terrainMesh || this.sitePreset === 'studio') return 0;
     const dist = Math.sqrt(x * x + z * z);
     const flatten = THREE.MathUtils.smoothstep(dist, 13.0, 26.0);
+
+    if (this.elevationGrid && this.elevationGrid.length >= 9) {
+      const u = (x + 75.0) / 150.0;
+      const v = (z + 75.0) / 150.0;
+      const absElev = this.sampleDEM(u, v);
+      return (absElev - this.centerElevation) * (this.elevationExaggeration || 1.0) * flatten - 0.25;
+    }
 
     const mHeight = this.envParams.mountain_height;
     const slope = this.envParams.terrain_slope;

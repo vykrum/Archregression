@@ -1,4 +1,4 @@
-﻿namespace Archregression
+namespace Archregression
 
 open System
 open Bolero
@@ -17,19 +17,19 @@ module Components =
                 div {
                     attr.``class`` "brand-text"
                     h1 { "Archregression CAD" }
-                    p { "Site-Conditioned Geometric Regression & Physical Surrogates" }
+                    p { "Satellite DEM Topography & Generative Architectural Surrogates" }
                 }
             }
             div {
                 attr.``class`` "header-status"
-                span { sprintf "%s | %.4f°N, %.4f°E | Elev: %.1f m | %s (%d AADT)" model.Site.Name model.Site.Latitude model.Site.Longitude model.Site.Elevation model.Site.Urban.RoadType.DisplayName model.Site.Urban.TrafficVolumeAadt }
+                span { sprintf "%s | %.4f°N, %.4f°E | Elev: %.0f m MSL | Slope: %.1f° (%s)" model.Site.Name model.Site.Latitude model.Site.Longitude model.Site.Elevation model.Site.Topography.TerrainSlope model.Site.Topography.SlopeDirection.DisplayName }
             }
             div {
                 attr.``class`` "header-actions"
                 button {
                     attr.``class`` "btn"
                     on.click (fun _ -> dispatch OpenMapModal)
-                    "Map Site"
+                    "Map Location"
                 }
                 let optLabel = if model.IsOptimizing then "Optimizing..." else "Synthesize"
                 button {
@@ -100,15 +100,16 @@ module Components =
 
             div {
                 attr.``class`` "panel-subheader"
-                span { "Topography & Hydrology" }
+                span { "Satellite Topography & Exaggeration" }
             }
 
-            renderSlider "Mountain Peak" (sprintf "%.0f m" topo.MountainHeight) 0.0 60.0 2.0 topo.MountainHeight UpdateMountainHeight dispatch
-            renderSlider "Terrain Slope" (sprintf "%.1f°" topo.TerrainSlope) 0.0 35.0 1.0 topo.TerrainSlope UpdateTerrainSlope dispatch
+            renderSlider "Terrain Vertical Scale" (sprintf "%.1fx" topo.ElevationExaggeration) 1.0 3.0 0.2 topo.ElevationExaggeration UpdateElevationExaggeration dispatch
+            renderSlider "Local Relief Span" (sprintf "%.0f m" topo.Ruggedness) 0.0 600.0 10.0 topo.Ruggedness UpdateMountainHeight dispatch
+            renderSlider "Terrain Slope" (sprintf "%.1f°" topo.TerrainSlope) 0.0 45.0 1.0 topo.TerrainSlope UpdateTerrainSlope dispatch
 
             div {
                 attr.``class`` "param-group"
-                span { attr.``class`` "param-name"; "Aspect (Facing)" }
+                span { attr.``class`` "param-name"; "Downhill Aspect" }
                 select {
                     attr.``class`` "site-preset-select"
                     attr.value topo.SlopeDirection.Key
@@ -122,7 +123,7 @@ module Components =
 
             div {
                 attr.``class`` "param-group"
-                span { attr.``class`` "param-name"; "Water Body" }
+                span { attr.``class`` "param-name"; "Water Feature" }
                 select {
                     attr.``class`` "site-preset-select"
                     attr.value topo.WaterType.Key
@@ -133,7 +134,7 @@ module Components =
                 }
             }
 
-            renderSlider "Water Distance" (sprintf "%.0f m" topo.WaterProximity) 12.0 60.0 2.0 topo.WaterProximity UpdateWaterProximity dispatch
+            renderSlider "Water Setback" (sprintf "%.0f m" topo.WaterProximity) 12.0 99.0 2.0 topo.WaterProximity UpdateWaterProximity dispatch
 
             div {
                 attr.``class`` "param-group"
@@ -183,7 +184,7 @@ module Components =
 
     let renderCustomSitePanel = renderCustomTopographyBuilder
 
-    /// Minimalist Global Site Selection Modal
+    /// Geographic Site Selection Modal (Satellite Topography)
     let renderMapModal (model: Model) (dispatch: Message -> unit) =
         div {
             attr.``class`` (if model.ShowMapModal then "modal-overlay active" else "modal-overlay")
@@ -194,7 +195,7 @@ module Components =
                     attr.``class`` "modal-header"
                     div {
                         attr.``class`` "modal-title"
-                        "Site Location & Topographic Inspector"
+                        "Geographic Site Selection & Real Satellite DEM Topography"
                     }
                     button {
                         attr.``class`` "modal-close-btn"
@@ -206,16 +207,16 @@ module Components =
                     attr.``class`` "modal-body"
                     div {
                         attr.``class`` "map-preset-pills"
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset OceanCoastline)); "Sausalito" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset AlpineMountain)); "Chamonix" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset InlandLake)); "Zurich" }
+                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset OceanCoastline)); "Sausalito, CA" }
+                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset AlpineMountain)); "Chamonix Alps" }
+                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset InlandLake)); "Lake Zurich" }
                         button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset ForestCanopy)); "Black Forest" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset UrbanCanyon)); "Singapore" }
+                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset CustomSite)); "Atacama Plateau" }
                     }
                     div {
                         attr.id "map-coords-readout"
                         attr.``class`` "map-coords-readout"
-                        "Click on map or reposition marker to query real elevation, slope, and topographic relief."
+                        "Click anywhere on map or reposition marker to query real satellite DEM elevation grid."
                     }
                     div {
                         attr.id "map-picker-container"
@@ -230,8 +231,8 @@ module Components =
                         }
                         button {
                             attr.``class`` "btn btn-primary"
-                            on.click (fun _ -> dispatch CloseMapModal)
-                            "Apply Site"
+                            on.click (fun _ -> dispatch RequestApplyMapSite)
+                            "Apply Real Site Topography"
                         }
                     }
                 }

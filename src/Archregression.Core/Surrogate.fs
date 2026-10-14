@@ -1,4 +1,4 @@
-﻿namespace Archregression
+namespace Archregression
 
 open System
 open System.Diagnostics
@@ -20,35 +20,58 @@ module Surrogate =
         // -------------------------------------------------------------
         // 1. Topographic Horizon Mask & Solar Occlusion
         // -------------------------------------------------------------
-        let mountainDist = Math.Max(25.0, topo.WaterProximity + 20.0)
-        let horizonRad = Math.Atan(topo.MountainHeight / mountainDist)
-        let horizonDeg = horizonRad * 180.0 / Math.PI
+        let horizonDeg =
+            if not (isNull topo.ElevationGrid) && topo.ElevationGrid.Length >= 81 then
+                let dim = 9
+                let mutable maxAngle = 0.0
+                for r in 0 .. dim - 1 do
+                    for c in 0 .. dim - 1 do
+                        if r = 0 || r = dim - 1 || c = 0 || c = dim - 1 then
+                            let elev = topo.ElevationGrid.[r * dim + c]
+                            let diffElev = (elev - topo.CenterElevation) * topo.ElevationExaggeration
+                            let xRel = (float c / float (dim - 1) - 0.5) * 150.0
+                            let zRel = (float r / float (dim - 1) - 0.5) * 150.0
+                            let dist = Math.Sqrt(xRel * xRel + zRel * zRel)
+                            if dist > 5.0 && diffElev > 0.0 then
+                                let ang = Math.Atan(diffElev / dist) * 180.0 / Math.PI
+                                if ang > maxAngle then maxAngle <- ang
+                Math.Min(45.0, maxAngle)
+            else
+                let mountainDist = Math.Max(25.0, topo.WaterProximity + 20.0)
+                let horizonRad = Math.Atan(topo.MountainHeight / mountainDist)
+                horizonRad * 180.0 / Math.PI
 
         let isNorthFacing = topo.SlopeDirection = AspectNorth
         let aspectSolarBonus = if isNorthFacing then -6.0 elif topo.SlopeDirection = AspectSouth then 4.0 else 0.0
         let mountainHorizonPenalty = Math.Max(0.0, (horizonDeg - 8.0) * 0.42)
 
         // -------------------------------------------------------------
-        // 2. Cut & Fill Earthwork Analysis
+        // 2. Cut & Fill Earthwork Analysis (2D Numerical Integration over DEM)
         // -------------------------------------------------------------
-        let slopeRad = topo.TerrainSlope * Math.PI / 180.0
-        let slices = 24
-        let dx = p.RoomDepth / float slices
-        let cellArea = dx * p.RoomWidth
+        let samplesX = 16
+        let samplesZ = 16
+        let dx = p.RoomWidth / float samplesX
+        let dz = p.RoomDepth / float samplesZ
+        let cellArea = dx * dz
         let mutable cutVol = 0.0
         let mutable fillVol = 0.0
+        let mutable sumGroundElev = 0.0
 
-        for i in 0 .. slices - 1 do
-            let xRel = -0.5 * p.RoomDepth + (float i + 0.5) * dx
-            let terrainZ = xRel * Math.Tan(slopeRad)
-            let diff = terrainZ - p.PadElevationOffset
-            if diff > 0.0 then
-                cutVol <- cutVol + diff * cellArea
-            else
-                fillVol <- fillVol + (-diff) * cellArea
+        for ix in 0 .. samplesX - 1 do
+            let xRel = -0.5 * p.RoomWidth + (float ix + 0.5) * dx
+            for iz in 0 .. samplesZ - 1 do
+                let zRel = -0.5 * p.RoomDepth + (float iz + 0.5) * dz
+                let terrainZ = Topography.sampleRawGridOffset xRel zRel topo
+                sumGroundElev <- sumGroundElev + terrainZ
+                let diff = terrainZ - p.PadElevationOffset
+                if diff > 0.0 then
+                    cutVol <- cutVol + diff * cellArea
+                else
+                    fillVol <- fillVol + (-diff) * cellArea
 
         let netEarthwork = cutVol - fillVol
-        let optimalPadZ = 0.0
+        let totalSamples = float (samplesX * samplesZ)
+        let optimalPadZ = sumGroundElev / totalSamples
 
         // -------------------------------------------------------------
         // 3. Foundation Strategy Classification
@@ -62,7 +85,7 @@ module Surrogate =
         // -------------------------------------------------------------
         // 4. Hydrology & Runoff Risk (TWI Proxy)
         // -------------------------------------------------------------
-        let baseRunoff = 1.0 + (topo.TerrainSlope / 4.2) + (topo.Ruggedness * 3.2)
+        let baseRunoff = 1.0 + (topo.TerrainSlope / 4.2) + (Math.Min(1.0, topo.Ruggedness / 120.0) * 3.2)
         let waterBufferFactor = if hasWater && topo.WaterProximity < 25.0 then 2.0 else 0.0
         let runoffRisk = Math.Min(10.0, Math.Max(1.0, baseRunoff + waterBufferFactor))
 

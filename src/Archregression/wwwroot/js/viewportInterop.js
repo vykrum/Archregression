@@ -1,4 +1,4 @@
-﻿/**
+/**
  * wwwroot/js/viewportInterop.js
  * =============================
  * JavaScript Interop Bridge called directly by F# Bolero WebAssembly.
@@ -85,6 +85,10 @@ window.archInterop = {
     if (mapPickerInstance) {
       mapPickerInstance.applyCurrentSite();
     }
+  },
+
+  getMapSiteJson: () => {
+    return mapPickerInstance ? mapPickerInstance.getCurrentSiteJson() : null;
   },
 
   updateArchitecture: (params) => {

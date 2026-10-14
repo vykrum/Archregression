@@ -1,4 +1,4 @@
-namespace Archregression
+﻿namespace Archregression
 
 open System
 open Elmish
@@ -150,21 +150,35 @@ type MainComponent() =
                     | OceanCoastline -> SiteLocation.Sausalito
                     | AlpineMountain -> SiteLocation.Chamonix
                     | InlandLake -> SiteLocation.Zurich
-                    | ForestCanopy ->
-                        let t = { TopographyParams.DefaultLake with MountainHeight = 16.0; WaterType = NoWater; TreeDensity = 0.85; Biome = TemperateCanopy }
-                        { Name = "Black Forest, Germany"; Latitude = 48.1833; Longitude = 8.1667; Elevation = 780.0; Preset = ForestCanopy; Topography = t; Urban = UrbanContextParams.DefaultBlackForest }
+                    | ForestCanopy -> SiteLocation.BlackForest
+                    | CustomSite -> SiteLocation.Atacama
                     | UrbanCanyon ->
-                        let t = { TopographyParams.DefaultOcean with MountainHeight = 4.0; TerrainSlope = 2.0; UrbanShadows = true }
+                        let t = { TopographyParams.DefaultOcean with CenterElevation = 5.0; MountainHeight = 4.0; TerrainSlope = 2.0; UrbanShadows = true }
                         { Name = "Marina Bay, Singapore"; Latitude = 1.2847; Longitude = 103.8610; Elevation = 5.0; Preset = UrbanCanyon; Topography = t; Urban = UrbanContextParams.DefaultSingapore }
                     | StudioPlinth ->
-                        let t = { TopographyParams.DefaultOcean with MountainHeight = 0.0; TerrainSlope = 0.0; WaterType = NoWater; TreeDensity = 0.0 }
+                        let t = { TopographyParams.DefaultOcean with CenterElevation = 0.0; MountainHeight = 0.0; TerrainSlope = 0.0; WaterType = NoWater; TreeDensity = 0.0 }
                         { Name = "Engineering Plinth"; Latitude = 0.0; Longitude = 0.0; Elevation = 0.0; Preset = StudioPlinth; Topography = t; Urban = UrbanContextParams.DefaultSausalito }
-                    | CustomSite ->
-                        { model.Site with Preset = CustomSite }
 
                 let pred = Surrogate.evaluate model.Architecture s
                 bridge.ApplySite s
                 { model with Site = s; Prediction = pred; ShowCustomPanel = (preset = CustomSite) }, Cmd.none
+
+            | UpdateElevationExaggeration ex ->
+                let t = { model.Site.Topography with ElevationExaggeration = ex }
+                let s = { model.Site with Topography = t }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | RequestApplyMapSite ->
+                let cmd =
+                    Cmd.OfTask.perform
+                        (fun () -> bridge.GetMapSiteAsync())
+                        ()
+                        (function
+                         | Some site -> ApplySiteFromMap site
+                         | None -> CloseMapModal)
+                model, cmd
 
             | UpdateMountainHeight h ->
                 let t = { model.Site.Topography with MountainHeight = h }
@@ -324,10 +338,10 @@ type MainComponent() =
 
                             // WWR & Envelope
                             Components.renderSlider "Window-to-Wall Ratio" (sprintf "%d%%" (int (p.Wwr * 100.0))) 0.15 0.85 0.05 p.Wwr SetWwr dispatch
-                            Components.renderSlider "Louver Angle" (sprintf "%.0f°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
+                            Components.renderSlider "Louver Angle" (sprintf "%.0fÂ°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
                             Components.renderSlider "Overhang Depth" (sprintf "%.2f m" p.OverhangDepth) 0.2 2.5 0.1 p.OverhangDepth SetOverhangDepth dispatch
-                            Components.renderSlider "Solar Azimuth" (sprintf "%.0f°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
-                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/m²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
+                            Components.renderSlider "Solar Azimuth" (sprintf "%.0fÂ°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
+                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/mÂ²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
 
                             // 02. Foundation & Compliance Status
                             div {
@@ -376,30 +390,53 @@ type MainComponent() =
                                 attr.style "margin-top: 1.15rem;"
                                 div {
                                     attr.``class`` "drawer-title"
-                                    "03. Topography & Terrain"
+                                    "03. Real Satellite Topography"
+                                }
+                            }
+
+                            // Interactive Site Location Card
+                            div {
+                                attr.``class`` "kpi-card"
+                                attr.style "cursor: pointer; margin-bottom: 0.6rem; border: 1px solid #38bdf8;"
+                                on.click (fun _ -> dispatch OpenMapModal)
+                                div { attr.``class`` "kpi-title"; "Active Geographic Site (Satellite DEM)" }
+                                div { attr.``class`` "kpi-meta"; sprintf "%s" s.Name }
+                                div {
+                                    attr.``class`` "kpi-value-row"
+                                    span { attr.``class`` "kpi-num"; sprintf "%.0f" s.Elevation }
+                                    span { attr.``class`` "kpi-unit"; "m MSL" }
+                                }
+                                div {
+                                    attr.``class`` "kpi-meta"
+                                    sprintf "Slope: %.1fÂ° (%s) | Relief: %.0f m | 81 DEM Points" s.Topography.TerrainSlope s.Topography.SlopeDirection.DisplayName s.Topography.Ruggedness
+                                }
+                            }
+
+                            // Geographic Site Bookmarks
+                            div {
+                                attr.``class`` "param-group"
+                                span { attr.``class`` "param-name"; "Location Bookmarks" }
+                                div {
+                                    attr.``class`` "map-preset-pills"
+                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset OceanCoastline)); "Sausalito" }
+                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset AlpineMountain)); "Chamonix" }
+                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset InlandLake)); "Zurich" }
+                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset ForestCanopy)); "Black Forest" }
+                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset CustomSite)); "Atacama" }
                                 }
                             }
 
                             div {
                                 attr.``class`` "param-group"
-                                span { attr.``class`` "param-name"; "Preset Typology" }
-                                select {
-                                    attr.``class`` "site-preset-select"
-                                    attr.value s.Preset.Key
-                                    on.change (fun e -> dispatch (SelectSitePreset (SitePreset.FromKey (e.Value :?> string))))
-                                    option { attr.value "ocean"; "Coastal Bluff" }
-                                    option { attr.value "mountain"; "Alpine Ridge" }
-                                    option { attr.value "lake"; "Lakefront" }
-                                    option { attr.value "forest"; "Forest Canopy" }
-                                    option { attr.value "urban"; "Urban Canyon" }
-                                    option { attr.value "studio"; "Studio Plinth" }
-                                    option { attr.value "custom"; "Custom" }
+                                button {
+                                    attr.``class`` "btn btn-primary"
+                                    attr.style "width: 100%; justify-content: center; margin-bottom: 0.4rem;"
+                                    on.click (fun _ -> dispatch OpenMapModal)
+                                    "Choose Location on World Map"
                                 }
                             }
 
-                            cond (model.ShowCustomPanel || s.Preset = CustomSite) <| function
-                                | true -> Components.renderCustomSitePanel model.Site dispatch
-                                | false -> empty ()
+                            Components.renderCustomSitePanel model.Site dispatch
 
                             Components.renderSlider "Tree Canopy Density" (sprintf "%d%%" (int (s.Topography.TreeDensity * 100.0))) 0.0 1.0 0.05 s.Topography.TreeDensity SetTreeDensity dispatch
 
@@ -448,7 +485,7 @@ type MainComponent() =
                             attr.``class`` "kpi-grid"
                             Components.renderKpiCard DaylightAutonomy "Daylight (sDA)" (sprintf "%.1f" pred.SdaPercent) "%" "Target: > 55%" model.ActiveTarget dispatch
                             let earthworkSign = if pred.NetEarthworkM3 > 0.0 then "+" else ""
-                            Components.renderKpiCard EarthworkBalance "Net Earthwork" (sprintf "%s%.1f" earthworkSign pred.NetEarthworkM3) "m³" (sprintf "Cut: %.1f | Fill: %.1f" pred.CutVolumeM3 pred.FillVolumeM3) model.ActiveTarget dispatch
+                            Components.renderKpiCard EarthworkBalance "Net Earthwork" (sprintf "%s%.1f" earthworkSign pred.NetEarthworkM3) "mÂ³" (sprintf "Cut: %.1f | Fill: %.1f" pred.CutVolumeM3 pred.FillVolumeM3) model.ActiveTarget dispatch
                             Components.renderKpiCard AcousticComfort "Acoustic (R'w)" (sprintf "%.0f" pred.RequiredAcousticRwDb) "dB" (sprintf "Incident: %.1f dB" pred.FacadeNoiseLdenDb) model.ActiveTarget dispatch
                             Components.renderKpiCard ZoningFar "Zoning FAR" (sprintf "%.2f" pred.FarRatio) "ratio" (sprintf "%.0f%% of Max %.1f" pred.FarUtilizationPct s.Urban.Zoning.MaxFar) model.ActiveTarget dispatch
                         }
@@ -459,17 +496,17 @@ type MainComponent() =
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "EXCAVATION CUT" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.CutVolumeM3 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f mÂ³" pred.CutVolumeM3 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "EMBANKMENT FILL" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.FillVolumeM3 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f mÂ³" pred.FillVolumeM3 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "HORIZON MASK" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1f°" pred.HorizonObstructionDeg }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1fÂ°" pred.HorizonObstructionDeg }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
@@ -494,7 +531,7 @@ type MainComponent() =
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "GROSS GFA" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.0f m²" pred.GrossFloorAreaM2 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.0f mÂ²" pred.GrossFloorAreaM2 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
@@ -506,9 +543,9 @@ type MainComponent() =
                         // Energy & Environmental Secondary Row
                         div {
                             attr.style "display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;"
-                            Components.renderKpiCard CoolingEnergy "Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/m²" "Surrogate: ±4.8 RMSE" model.ActiveTarget dispatch
+                            Components.renderKpiCard CoolingEnergy "Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/mÂ²" "Surrogate: Â±4.8 RMSE" model.ActiveTarget dispatch
                             Components.renderKpiCard StructuralStress "Structural Stress" (sprintf "%.1f" pred.PeakStress) "MPa" "Limit: 140 MPa" model.ActiveTarget dispatch
-                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCO₂e" "A1-A3 with Acoustics" model.ActiveTarget dispatch
+                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCOâ‚‚e" "A1-A3 with Acoustics" model.ActiveTarget dispatch
                         }
 
                         // Active Metric Header Bar with Latency Chip
@@ -533,8 +570,8 @@ type MainComponent() =
                                 attr.``class`` "chart-card"
                                 div {
                                     attr.``class`` "chart-card-header"
-                                    div { attr.``class`` "chart-title"; "Parity Plot: Physical Simulation (y) vs. F# Surrogate (ŷ)" }
-                                    span { attr.``class`` "chart-badge"; "R² = 0.964 | 160 Samples" }
+                                    div { attr.``class`` "chart-title"; "Parity Plot: Physical Simulation (y) vs. F# Surrogate (Å·)" }
+                                    span { attr.``class`` "chart-badge"; "RÂ² = 0.964 | 160 Samples" }
                                 }
                                 div { attr.id "chart-parity"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
                             }

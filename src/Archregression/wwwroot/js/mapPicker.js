@@ -1,11 +1,11 @@
-﻿/**
+/**
  * wwwroot/js/mapPicker.js
  * =======================
  * Interactive Global Map Site Picker using Leaflet & OpenStreetMap.
  * 
- * Queries real-world elevation and topographic slope from Open-Meteo API,
- * automatically detects ocean coastlines, alpine mountains, inland lakes, and forests,
- * and generates the complete 3D natural site context in Three.js.
+ * Dynamically queries real satellite DEM elevation data (81-point grid) from Open-Meteo API
+ * for ANY location clicked or searched on Earth. Replaces synthetic preset topography with
+ * authentic real-world elevation, slope, aspect, relief, and hydrological features.
  */
 
 export class GlobalMapPicker {
@@ -16,25 +16,36 @@ export class GlobalMapPicker {
     this.marker = null;
     this.queryDebounceTimer = null;
 
-    // Active site state
+    // Active site state with default 81-point DEM grid (Sausalito, CA)
     this.currentSite = {
-      name: 'Lake Zurich Waterfront, Switzerland',
-      lat: 47.3686,
-      lng: 8.5391,
-      elevation: 408,
-      slope: 8.0,
+      name: 'Sausalito Coastal Bluff & Bay, California',
+      lat: 37.8590,
+      lng: -122.4853,
+      elevation: 18.0,
+      slope: 14.0,
       slopeDir: 'south',
-      ruggedness: 45,
-      preset: 'lake',
-      waterType: 'lake',
-      waterProximity: 22,
-      mountainHeight: 18,
-      treeDensity: 0.65,
-      biome: 'temperate',
+      ruggedness: 37.0,
+      preset: 'ocean',
+      waterType: 'ocean',
+      waterProximity: 20.0,
+      mountainHeight: 37.0,
+      treeDensity: 0.60,
+      biome: 'coastal',
       hasWater: true,
-      hasOcean: false,
-      hasLake: true,
-      urbanContext: false
+      hasOcean: true,
+      hasLake: false,
+      urbanContext: false,
+      elevationGrid: [
+        22.0, 22.0, 17.0, 15.0, 15.0, 14.0, 14.0, 26.0, 37.0,
+        17.0, 17.0, 11.0, 10.0, 10.0, 6.0, 6.0, 6.0, 9.0,
+        17.0, 17.0, 11.0, 10.0, 10.0, 6.0, 6.0, 6.0, 9.0,
+        8.0, 8.0, 7.0, 6.0, 6.0, 4.0, 4.0, 2.0, 3.0,
+        8.0, 8.0, 7.0, 6.0, 6.0, 4.0, 4.0, 2.0, 3.0,
+        4.0, 4.0, 3.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0,
+        4.0, 4.0, 3.0, 2.0, 2.0, 0.0, 0.0, 0.0, 0.0,
+        3.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+        3.0, 3.0, 3.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0
+      ]
     };
   }
 
@@ -47,8 +58,8 @@ export class GlobalMapPicker {
     const container = document.getElementById(this.containerId);
     if (!container) return;
 
-    // Create Leaflet map centered on Switzerland / Alpine lakes
-    this.map = window.L.map(this.containerId).setView([this.currentSite.lat, this.currentSite.lng], 12);
+    // Create Leaflet map centered on current site
+    this.map = window.L.map(this.containerId).setView([this.currentSite.lat, this.currentSite.lng], 13);
 
     // Free OpenStreetMap Tile Layer
     window.L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -56,7 +67,7 @@ export class GlobalMapPicker {
       attribution: '© OpenStreetMap contributors'
     }).addTo(this.map);
 
-    // Initial Marker
+    // Initial Draggable Marker
     this.marker = window.L.marker([this.currentSite.lat, this.currentSite.lng], { draggable: true }).addTo(this.map);
 
     this.updateMarkerPopup();
@@ -74,9 +85,6 @@ export class GlobalMapPicker {
       this.analyzeSite(pos.lat, pos.lng);
     });
 
-    // Initial site analysis
-    this.analyzeSite(this.currentSite.lat, this.currentSite.lng);
-
     setTimeout(() => {
       if (this.map) this.map.invalidateSize();
     }, 200);
@@ -86,12 +94,12 @@ export class GlobalMapPicker {
     if (!this.marker) return;
     const s = this.currentSite;
     const content = `
-      <div style="font-family:'Inter',sans-serif; font-size:12px; color:#1e293b; min-width:180px;">
+      <div style="font-family:'Inter',sans-serif; font-size:12px; color:#1e293b; min-width:200px;">
         <strong style="color:#0284c7;">${s.name}</strong><br>
         <strong>Elevation:</strong> ${Math.round(s.elevation)} m MSL<br>
         <strong>Slope:</strong> ${s.slope.toFixed(1)}° (${s.slopeDir})<br>
         <strong>Relief / Ruggedness:</strong> ${Math.round(s.ruggedness)} m<br>
-        <strong>Detected Context:</strong> <span style="background:#e0f2fe; color:#0369a1; padding:2px 5px; border-radius:4px; font-weight:600;">${s.preset.toUpperCase()}</span>
+        <strong>Satellite DEM:</strong> <span style="background:#e0f2fe; color:#0369a1; padding:2px 5px; border-radius:4px; font-weight:600;">81 Points (9×9)</span>
       </div>
     `;
     this.marker.bindPopup(content).openPopup();
@@ -102,7 +110,7 @@ export class GlobalMapPicker {
 
     const coordsElem = document.getElementById('map-coords-readout');
     if (coordsElem) {
-      coordsElem.textContent = `Querying topographic relief at ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E...`;
+      coordsElem.textContent = `Querying satellite DEM elevation grid at ${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E...`;
     }
 
     this.queryDebounceTimer = setTimeout(async () => {
@@ -110,40 +118,50 @@ export class GlobalMapPicker {
       this.currentSite.lng = lng;
 
       try {
-        // Query Open-Meteo free elevation API with a 5-point grid around the target to calculate gradient & slope
-        const dLat = 0.011; // ~1.2 km grid for spatial relief
-        const dLng = 0.011;
-        const lats = [lat, lat + dLat, lat - dLat, lat, lat];
-        const lngs = [lng, lng, lng, lng + dLng, lng - dLng];
+        // Query Open-Meteo free elevation API with a 9x9 (81 points) grid around the target (~350m parcel)
+        const cosLat = Math.max(0.15, Math.cos(lat * Math.PI / 180));
+        const dLat = 0.0032;
+        const dLng = 0.0032 / cosLat;
+        const lats = [];
+        const lngs = [];
+
+        for (let i = -4; i <= 4; i++) {
+          for (let j = -4; j <= 4; j++) {
+            const latVal = lat + (i / 4.0) * (dLat / 2.0);
+            const lngVal = lng + (j / 4.0) * (dLng / 2.0);
+            lats.push(latVal.toFixed(5));
+            lngs.push(lngVal.toFixed(5));
+          }
+        }
 
         const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lats.join(',')}&longitude=${lngs.join(',')}`;
         const elevRes = await fetch(elevUrl);
-        let elevations = [400, 420, 390, 410, 395];
+        let elevations = this.currentSite.elevationGrid;
 
         if (elevRes.ok) {
           const elevData = await elevRes.json();
-          if (elevData && elevData.elevation && elevData.elevation.length === 5) {
+          if (elevData && elevData.elevation && elevData.elevation.length === 81) {
             elevations = elevData.elevation;
           }
         }
 
-        const centerElev = elevations[0];
-        const northElev = elevations[1];
-        const southElev = elevations[2];
-        const eastElev = elevations[3];
-        const westElev = elevations[4];
-
-        // Gradient & Slope calculation
-        const distNS = dLat * 111000;
-        const distEW = dLng * 111000 * Math.cos(lat * Math.PI / 180);
-        const gradY = (northElev - southElev) / (2 * distNS);
-        const gradX = (eastElev - westElev) / (2 * distEW);
-        const slopeRad = Math.atan(Math.sqrt(gradX * gradX + gradY * gradY));
-        const slopeDeg = Math.min(35, Math.max(1, slopeRad * (180 / Math.PI)));
-
+        const centerElev = elevations[40];
         const minElev = Math.min(...elevations);
         const maxElev = Math.max(...elevations);
-        const relief = Math.max(10, maxElev - minElev);
+        const relief = Math.max(5, maxElev - minElev);
+
+        // Cardinal endpoints for slope & gradient calculation
+        const northElev = elevations[8 * 9 + 4];
+        const southElev = elevations[0 * 9 + 4];
+        const eastElev = elevations[4 * 9 + 8];
+        const westElev = elevations[4 * 9 + 0];
+
+        const distNS = dLat * 111000;
+        const distEW = dLng * 111000 * cosLat;
+        const gradY = (northElev - southElev) / Math.max(10, distNS);
+        const gradX = (eastElev - westElev) / Math.max(10, distEW);
+        const slopeRad = Math.atan(Math.sqrt(gradX * gradX + gradY * gradY));
+        const slopeDeg = Math.min(45, Math.max(1, slopeRad * (180 / Math.PI)));
 
         let slopeDir = 'south';
         if (Math.abs(gradY) > Math.abs(gradX)) {
@@ -152,50 +170,30 @@ export class GlobalMapPicker {
           slopeDir = gradX > 0 ? 'east' : 'west';
         }
 
-        // Ocean / Coastal Detection
+        // Ocean & shoreline detection
         const isNearSeaLevel = centerElev < 45 && minElev <= 2;
         const dropsToZero = elevations.some(e => e <= 0);
         const isOcean = isNearSeaLevel || dropsToZero;
 
-        // Mountain Detection
-        const isMountain = centerElev > 650 || relief > 120 || slopeDeg > 15;
+        // Freshwater lake detection
+        const isLake = !isOcean && relief > 40 && minElev > 150;
 
+        this.currentSite.elevationGrid = elevations;
         this.currentSite.elevation = centerElev;
         this.currentSite.slope = slopeDeg;
         this.currentSite.slopeDir = slopeDir;
         this.currentSite.ruggedness = relief;
+        this.currentSite.waterType = isOcean ? 'ocean' : (isLake ? 'lake' : 'none');
+        this.currentSite.hasWater = this.currentSite.waterType !== 'none';
+        this.currentSite.hasOcean = isOcean;
+        this.currentSite.hasLake = isLake;
+        this.currentSite.waterProximity = isOcean ? 20.0 : (isLake ? 25.0 : 99.0);
+        this.currentSite.mountainHeight = relief;
+        this.currentSite.biome = centerElev > 1800 ? 'alpine' : (isOcean ? 'coastal' : 'temperate');
+        this.currentSite.treeDensity = centerElev > 2400 ? 0.15 : (centerElev > 1800 ? 0.40 : (isOcean ? 0.55 : 0.75));
+        this.currentSite.preset = isOcean ? 'ocean' : (centerElev > 650 || relief > 120 || slopeDeg > 18 ? 'mountain' : (isLake ? 'lake' : 'forest'));
 
-        if (isOcean) {
-          this.currentSite.preset = 'ocean';
-          this.currentSite.waterType = 'ocean';
-          this.currentSite.hasWater = true;
-          this.currentSite.hasOcean = true;
-          this.currentSite.hasLake = false;
-          this.currentSite.waterProximity = 18;
-          this.currentSite.mountainHeight = Math.min(22, Math.max(8, slopeDeg * 0.8));
-          this.currentSite.treeDensity = 0.50;
-          this.currentSite.biome = 'coastal';
-        } else if (isMountain) {
-          this.currentSite.preset = 'mountain';
-          this.currentSite.waterType = relief > 200 && minElev > 400 ? 'lake' : 'none';
-          this.currentSite.hasWater = this.currentSite.waterType === 'lake';
-          this.currentSite.hasOcean = false;
-          this.currentSite.hasLake = this.currentSite.waterType === 'lake';
-          this.currentSite.waterProximity = 35;
-          this.currentSite.mountainHeight = Math.min(50, Math.max(20, relief * 0.12));
-          this.currentSite.treeDensity = centerElev > 2200 ? 0.25 : 0.60;
-          this.currentSite.biome = 'alpine';
-        } else {
-          this.currentSite.preset = relief > 40 ? 'lake' : 'forest';
-          this.currentSite.waterType = this.currentSite.preset === 'lake' ? 'lake' : 'none';
-          this.currentSite.hasWater = this.currentSite.waterType === 'lake';
-          this.currentSite.hasOcean = false;
-          this.currentSite.hasLake = this.currentSite.hasWater;
-          this.currentSite.mountainHeight = Math.min(18, Math.max(5, relief * 0.1));
-          this.currentSite.treeDensity = 0.80;
-          this.currentSite.biome = 'temperate';
-        }
-
+        // Reverse Geocode site name via OpenStreetMap Nominatim
         try {
           const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`, {
             headers: { 'Accept-Language': 'en' }
@@ -212,138 +210,71 @@ export class GlobalMapPicker {
         this.updateMarkerPopup();
 
         if (coordsElem) {
-          const typeBadge = this.currentSite.preset === 'mountain' ? 'Alpine Ridge' :
-                            this.currentSite.preset === 'ocean' ? 'Coastal Bluff' :
-                            this.currentSite.preset === 'lake' ? 'Lakefront' : 'Forest Canopy';
           coordsElem.innerHTML = `
             <strong>${this.currentSite.name}</strong> (${lat.toFixed(4)}°, ${lng.toFixed(4)}°)<br>
-            Elev: ${Math.round(this.currentSite.elevation)}m MSL | Slope: ${this.currentSite.slope.toFixed(1)}° (${slopeDir}) | <strong>${typeBadge}</strong>
+            Elev: ${Math.round(this.currentSite.elevation)}m MSL | Slope: ${this.currentSite.slope.toFixed(1)}° (${slopeDir}) | Relief: ${Math.round(relief)}m | <strong>Satellite DEM (81 pts)</strong>
           `;
         }
+
+        // Live preview in 3D viewport while moving map
+        if (this.onSiteSelected) {
+          this.onSiteSelected(this.currentSite);
+        }
       } catch (err) {
-        console.warn('[MapPicker] Terrain analysis error:', err);
+        console.warn('[MapPicker] Satellite DEM query error:', err);
         if (coordsElem) {
-          coordsElem.textContent = `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E | Preset: ${this.currentSite.preset}`;
+          coordsElem.textContent = `${lat.toFixed(4)}° N, ${lng.toFixed(4)}° E | Elev: ${Math.round(this.currentSite.elevation)}m`;
         }
       }
-    }, 250);
+    }, 280);
   }
 
   selectPreset(presetKey) {
-    const presets = {
+    const bookmarks = {
       sausalito: {
-        name: 'Sausalito Coastal Bluff & Pacific Bay, California',
+        name: 'Sausalito Coastal Bluff & Bay, California',
         lat: 37.8590,
-        lng: -122.4853,
-        elevation: 18,
-        slope: 16.0,
-        slopeDir: 'south',
-        ruggedness: 110,
-        preset: 'ocean',
-        waterType: 'ocean',
-        waterProximity: 20,
-        mountainHeight: 16,
-        treeDensity: 0.60,
-        biome: 'coastal',
-        hasWater: true,
-        hasOcean: true,
-        hasLake: false,
-        urbanContext: false
+        lng: -122.4853
+      },
+      chamonix: {
+        name: 'Chamonix Mont-Blanc, French Alps',
+        lat: 45.9237,
+        lng: 6.8694
       },
       zermatt: {
         name: 'Zermatt Matterhorn Valley, Swiss Alps',
         lat: 45.9763,
-        lng: 7.7491,
-        elevation: 1620,
-        slope: 28.0,
-        slopeDir: 'north',
-        ruggedness: 480,
-        preset: 'mountain',
-        waterType: 'none',
-        waterProximity: 45,
-        mountainHeight: 42,
-        treeDensity: 0.35,
-        biome: 'alpine',
-        hasWater: false,
-        hasOcean: false,
-        hasLake: false,
-        urbanContext: false
+        lng: 7.7491
+      },
+      zurich: {
+        name: 'Lake Zurich Waterfront, Switzerland',
+        lat: 47.3686,
+        lng: 8.5391
       },
       tahoe: {
         name: 'Emerald Bay, Lake Tahoe, California',
         lat: 38.9545,
-        lng: -120.0984,
-        elevation: 1897,
-        slope: 12.0,
-        slopeDir: 'east',
-        ruggedness: 140,
-        preset: 'lake',
-        waterType: 'lake',
-        waterProximity: 25,
-        mountainHeight: 22,
-        treeDensity: 0.75,
-        biome: 'temperate',
-        hasWater: true,
-        hasOcean: false,
-        hasLake: true,
-        urbanContext: false
+        lng: -120.0984
       },
       atacama: {
         name: 'Valle de la Luna, Atacama Plateau, Chile',
         lat: -22.9234,
-        lng: -68.2974,
-        elevation: 2407,
-        slope: 6.0,
-        slopeDir: 'south',
-        ruggedness: 60,
-        preset: 'desert',
-        waterType: 'none',
-        waterProximity: 99,
-        mountainHeight: 12,
-        treeDensity: 0.05,
-        biome: 'arid',
-        hasWater: false,
-        hasOcean: false,
-        hasLake: false,
-        urbanContext: false
+        lng: -68.2974
       },
       blackforest: {
-        name: 'Black Forest Canopy & Ridge, Germany',
+        name: 'Black Forest Ridge & Canopy, Germany',
         lat: 48.1833,
-        lng: 8.1667,
-        elevation: 780,
-        slope: 12.0,
-        slopeDir: 'west',
-        ruggedness: 160,
-        preset: 'forest',
-        waterType: 'none',
-        waterProximity: 50,
-        mountainHeight: 18,
-        treeDensity: 0.90,
-        biome: 'temperate',
-        hasWater: false,
-        hasOcean: false,
-        hasLake: false,
-        urbanContext: false
+        lng: 8.1667
       }
     };
 
-    const s = presets[presetKey];
+    const s = bookmarks[presetKey] || bookmarks.sausalito;
     if (s && this.map) {
-      this.currentSite = { ...s };
       this.map.flyTo([s.lat, s.lng], 13, { duration: 1.2 });
       if (this.marker) {
         this.marker.setLatLng([s.lat, s.lng]);
-        this.updateMarkerPopup();
       }
-
-      const coordsElem = document.getElementById('map-coords-readout');
-      if (coordsElem) {
-        coordsElem.innerHTML = `
-          <strong>${s.name}</strong> (${s.lat.toFixed(4)}°, ${s.lng.toFixed(4)}°)<br>
-          Elev: ${s.elevation}m | Slope: ${s.slope}° (${s.slopeDir}) | <strong>${s.preset.toUpperCase()}</strong>
-        `;
-      }
+      this.analyzeSite(s.lat, s.lng);
     }
   }
 
@@ -352,5 +283,8 @@ export class GlobalMapPicker {
       this.onSiteSelected(this.currentSite);
     }
   }
-}
 
+  getCurrentSiteJson() {
+    return JSON.stringify(this.currentSite);
+  }
+}
