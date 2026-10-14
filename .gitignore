@@ -1,4 +1,4 @@
-# Build outputs & dependencies
+﻿# Build outputs & dependencies
 node_modules/
 dist/
 **/bin/
@@ -18,3 +18,7 @@ venv/
 *.log
 .DS_Store
 Thumbs.db
+
+# Local developer scripts
+*.ps1
+

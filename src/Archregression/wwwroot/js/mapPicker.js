@@ -212,9 +212,9 @@ export class GlobalMapPicker {
         this.updateMarkerPopup();
 
         if (coordsElem) {
-          const typeBadge = this.currentSite.preset === 'mountain' ? '⛰️ Alpine Mountain' :
-                            this.currentSite.preset === 'ocean' ? '🌊 Ocean Coastline' :
-                            this.currentSite.preset === 'lake' ? '🏞️ Lake Shoreline' : '🌲 Forest Canopy';
+          const typeBadge = this.currentSite.preset === 'mountain' ? 'Alpine Ridge' :
+                            this.currentSite.preset === 'ocean' ? 'Coastal Bluff' :
+                            this.currentSite.preset === 'lake' ? 'Lakefront' : 'Forest Canopy';
           coordsElem.innerHTML = `
             <strong>${this.currentSite.name}</strong> (${lat.toFixed(4)}°, ${lng.toFixed(4)}°)<br>
             Elev: ${Math.round(this.currentSite.elevation)}m MSL | Slope: ${this.currentSite.slope.toFixed(1)}° (${slopeDir}) | <strong>${typeBadge}</strong>
@@ -353,3 +353,4 @@ export class GlobalMapPicker {
     }
   }
 }
+

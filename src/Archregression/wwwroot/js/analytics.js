@@ -1,12 +1,12 @@
-/**
+﻿/**
  * wwwroot/js/analytics.js
  * =======================
  * Real-time Regression & Analytics Engine.
  * 
  * Implements:
- * 1. Parity Plot: Actual Simulation Target (y) vs. Surrogate Prediction (ŷ) with active design marker.
+ * 1. Parity Plot: Actual Simulation Target (y) vs. Surrogate Prediction (Å·) with active design marker.
  * 2. SHAP Feature Importance: Ranked bar chart with dynamic local force indicators.
- * 3. Residual Distribution: Histogram of residuals (y - ŷ) with Gaussian KDE distribution overlay.
+ * 3. Residual Distribution: Histogram of residuals (y - Å·) with Gaussian KDE distribution overlay.
  */
 
 export class RegressionAnalytics {
@@ -20,11 +20,11 @@ export class RegressionAnalytics {
     this.currentPrediction = null;
     this.targetMetadata = {
       sda_percent: { name: 'Spatial Daylight Autonomy (sDA 300/50%)', unit: '%', range: [0, 100], r2: 0.964, rmse: 3.42 },
-      cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/m²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
+      cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/mÂ²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
       peak_stress: { name: 'Peak Von Mises Stress', unit: 'MPa', range: [10, 95], r2: 0.978, rmse: 2.45 },
-      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCO₂e/m²', range: [180, 580], r2: 0.985, rmse: 7.90 },
+      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCOâ‚‚e/mÂ²', range: [180, 580], r2: 0.985, rmse: 7.90 },
       biophilic_view: { name: 'Biophilic & Green View Factor', unit: '%', range: [10, 100], r2: 0.982, rmse: 2.80 },
-      microclimate_cooling: { name: 'Microclimate Cooling Drop (ΔT)', unit: '°C', range: [0, 5.0], r2: 0.968, rmse: 0.25 }
+      microclimate_cooling: { name: 'Microclimate Cooling Drop (Î”T)', unit: 'Â°C', range: [0, 5.0], r2: 0.968, rmse: 0.25 }
     };
 
     this.shapRankings = {
@@ -119,7 +119,7 @@ export class RegressionAnalytics {
   }
 
   /**
-   * 1. PARITY PLOT: Actual y vs. Predicted ŷ
+   * 1. PARITY PLOT: Actual y vs. Predicted Å·
    */
   renderParityPlot() {
     if (!this.parityContainer) return;
@@ -174,7 +174,7 @@ export class RegressionAnalytics {
           y: [activePred],
           mode: 'markers+text',
           name: 'Active Design',
-          text: ['📍 Current'],
+          text: ['Current'],
           textposition: 'top center',
           textfont: { color: '#f43f5e', family: 'Inter', size: 12 },
           marker: {
@@ -183,7 +183,7 @@ export class RegressionAnalytics {
             line: { width: 2, color: '#ffffff' },
             symbol: 'diamond'
           },
-          hovertemplate: `Current Active Design<br>ŷ: %{y:.1f} ${meta.unit}<extra></extra>`
+          hovertemplate: `Current Active Design<br>Å·: %{y:.1f} ${meta.unit}<extra></extra>`
         };
         traces.push(traceActive);
       }
@@ -214,7 +214,7 @@ export class RegressionAnalytics {
             y: 0.95,
             xanchor: 'left',
             yanchor: 'top',
-            text: `<b>R² = ${meta.r2}</b><br>RMSE = ${meta.rmse} ${meta.unit}`,
+            text: `<b>RÂ² = ${meta.r2}</b><br>RMSE = ${meta.rmse} ${meta.unit}`,
             showarrow: false,
             font: { color: '#38bdf8', size: 11 },
             bgcolor: 'rgba(15, 23, 42, 0.85)',
@@ -282,7 +282,7 @@ export class RegressionAnalytics {
   }
 
   /**
-   * 3. RESIDUAL DISTRIBUTION: Histogram of (y - ŷ) centered at 0
+   * 3. RESIDUAL DISTRIBUTION: Histogram of (y - Å·) centered at 0
    */
   renderResidualPlot() {
     if (!this.residualContainer) return;
@@ -311,7 +311,7 @@ export class RegressionAnalytics {
         font: { color: '#94a3b8', family: 'Inter, sans-serif', size: 10 },
         margin: { t: 20, r: 20, b: 35, l: 45 },
         xaxis: {
-          title: `Residual Error (y - ŷ) [${meta.unit}]`,
+          title: `Residual Error (y - Å·) [${meta.unit}]`,
           gridcolor: '#1e293b',
           zeroline: true,
           zerolinecolor: '#f43f5e',
@@ -361,7 +361,7 @@ export class RegressionAnalytics {
         <line x1="${pad}" y1="${pad}" x2="${pad}" y2="${h - pad}" stroke="#334155" />
         ${circles}
         <text x="${w / 2}" y="${h - 10}" fill="#94a3b8" font-size="11" text-anchor="middle">Actual ${meta.name}</text>
-        <text x="12" y="${h / 2}" fill="#94a3b8" font-size="11" text-anchor="middle" transform="rotate(-90 12 ${h / 2})">Predicted (ŷ)</text>
+        <text x="12" y="${h / 2}" fill="#94a3b8" font-size="11" text-anchor="middle" transform="rotate(-90 12 ${h / 2})">Predicted (Å·)</text>
       </svg>
     `;
   }

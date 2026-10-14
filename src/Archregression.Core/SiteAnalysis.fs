@@ -1,4 +1,4 @@
-namespace Archregression
+﻿namespace Archregression
 
 open System
 
@@ -40,7 +40,7 @@ module SiteAnalysis =
         // Mountain detection: High altitude or steep relief
         let isMountain = centerElev > 650.0 || relief > 120.0 || slopeDeg > 15.0
 
-        let preset, topo =
+        let preset, topo, urban =
             if isOcean then
                 let topo =
                     { MountainHeight = Math.Min(22.0, Math.Max(8.0, slopeDeg * 0.8))
@@ -52,7 +52,7 @@ module SiteAnalysis =
                       TreeDensity = 0.55
                       Biome = CoastalCypress
                       UrbanShadows = false }
-                OceanCoastline, topo
+                OceanCoastline, topo, UrbanContextParams.DefaultSausalito
             elif isMountain then
                 let topo =
                     { MountainHeight = Math.Min(50.0, Math.Max(22.0, relief * 0.12))
@@ -64,7 +64,7 @@ module SiteAnalysis =
                       TreeDensity = if centerElev > 2200.0 then 0.25 else 0.50
                       Biome = AlpineConifers
                       UrbanShadows = false }
-                AlpineMountain, topo
+                AlpineMountain, topo, UrbanContextParams.DefaultChamonix
             else
                 let isLake = relief > 40.0
                 let topo =
@@ -77,11 +77,13 @@ module SiteAnalysis =
                       TreeDensity = 0.75
                       Biome = TemperateCanopy
                       UrbanShadows = false }
-                (if isLake then InlandLake else ForestCanopy), topo
+                let urbanPreset = if isLake then UrbanContextParams.DefaultZurich else UrbanContextParams.DefaultBlackForest
+                (if isLake then InlandLake else ForestCanopy), topo, urbanPreset
 
         { Name = name
           Latitude = lat
           Longitude = lng
           Elevation = centerElev
           Preset = preset
-          Topography = topo }
+          Topography = topo
+          Urban = urban }

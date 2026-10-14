@@ -1,4 +1,4 @@
-﻿namespace Archregression
+namespace Archregression
 
 open System
 open Elmish
@@ -52,6 +52,12 @@ type MainComponent() =
                 bridge.UpdateArchitecture p
                 { model with Architecture = p; Prediction = pred }, Cmd.none
 
+            | SetStoryCount v ->
+                let p = { model.Architecture with StoryCount = v }
+                let pred = Surrogate.evaluate p model.Site
+                bridge.UpdateArchitecture p
+                { model with Architecture = p; Prediction = pred }, Cmd.none
+
             | SetWwr v ->
                 let p = { model.Architecture with Wwr = v }
                 let pred = Surrogate.evaluate p model.Site
@@ -82,9 +88,58 @@ type MainComponent() =
                 bridge.UpdateArchitecture p
                 { model with Architecture = p; Prediction = pred }, Cmd.none
 
+            | SetPadElevationOffset v ->
+                let p = { model.Architecture with PadElevationOffset = v }
+                let pred = Surrogate.evaluate p model.Site
+                bridge.UpdateArchitecture p
+                { model with Architecture = p; Prediction = pred }, Cmd.none
+
             | SetTreeDensity v ->
                 let t = { model.Site.Topography with TreeDensity = v }
                 let s = { model.Site with Topography = t }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | SetRoadDistance v ->
+                let u = { model.Site.Urban with RoadDistanceM = v }
+                let s = { model.Site with Urban = u }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | SetAmbientNoise v ->
+                let u = { model.Site.Urban with AmbientNoiseLdenDb = v }
+                let s = { model.Site with Urban = u }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | SetTrafficVolume v ->
+                let u = { model.Site.Urban with TrafficVolumeAadt = v }
+                let s = { model.Site with Urban = u }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | SetTransitDistance v ->
+                let u = { model.Site.Urban with TransitDistanceM = v }
+                let s = { model.Site with Urban = u }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | SetMaxFar v ->
+                let z = { model.Site.Urban.Zoning with MaxFar = v }
+                let u = { model.Site.Urban with Zoning = z }
+                let s = { model.Site with Urban = u }
+                let pred = Surrogate.evaluate model.Architecture s
+                bridge.ApplySite s
+                { model with Site = s; Prediction = pred }, Cmd.none
+
+            | UpdateRoadType rt ->
+                let u = { model.Site.Urban with RoadType = rt }
+                let s = { model.Site with Urban = u }
                 let pred = Surrogate.evaluate model.Architecture s
                 bridge.ApplySite s
                 { model with Site = s; Prediction = pred }, Cmd.none
@@ -97,13 +152,13 @@ type MainComponent() =
                     | InlandLake -> SiteLocation.Zurich
                     | ForestCanopy ->
                         let t = { TopographyParams.DefaultLake with MountainHeight = 16.0; WaterType = NoWater; TreeDensity = 0.85; Biome = TemperateCanopy }
-                        { Name = "Black Forest Canopy & Ridge, Germany"; Latitude = 48.1833; Longitude = 8.1667; Elevation = 780.0; Preset = ForestCanopy; Topography = t }
+                        { Name = "Black Forest, Germany"; Latitude = 48.1833; Longitude = 8.1667; Elevation = 780.0; Preset = ForestCanopy; Topography = t; Urban = UrbanContextParams.DefaultBlackForest }
                     | UrbanCanyon ->
                         let t = { TopographyParams.DefaultOcean with MountainHeight = 4.0; TerrainSlope = 2.0; UrbanShadows = true }
-                        { Name = "Marina Bay Waterfront, Singapore"; Latitude = 1.2847; Longitude = 103.8610; Elevation = 5.0; Preset = UrbanCanyon; Topography = t }
+                        { Name = "Marina Bay, Singapore"; Latitude = 1.2847; Longitude = 103.8610; Elevation = 5.0; Preset = UrbanCanyon; Topography = t; Urban = UrbanContextParams.DefaultSingapore }
                     | StudioPlinth ->
                         let t = { TopographyParams.DefaultOcean with MountainHeight = 0.0; TerrainSlope = 0.0; WaterType = NoWater; TreeDensity = 0.0 }
-                        { Name = "Minimal Engineering Plinth"; Latitude = 0.0; Longitude = 0.0; Elevation = 0.0; Preset = StudioPlinth; Topography = t }
+                        { Name = "Engineering Plinth"; Latitude = 0.0; Longitude = 0.0; Elevation = 0.0; Preset = StudioPlinth; Topography = t; Urban = UrbanContextParams.DefaultSausalito }
                     | CustomSite ->
                         { model.Site with Preset = CustomSite }
 
@@ -230,7 +285,7 @@ type MainComponent() =
                         // Three.js Canvas Mount Container
                         div { attr.id "viewport-3d" }
 
-                        // Left Floating Parameters Drawer
+                        // Left Parameters Inspector Drawer
                         aside {
                             attr.``class`` "parameters-drawer"
 
@@ -238,8 +293,7 @@ type MainComponent() =
                                 attr.``class`` "drawer-header"
                                 div {
                                     attr.``class`` "drawer-title"
-                                    span { "ðŸ“" }
-                                    " Envelope Parameters"
+                                    "01. Massing & Program"
                                 }
                                 button {
                                     attr.``class`` "btn-reset"
@@ -248,11 +302,12 @@ type MainComponent() =
                                 }
                             }
 
-                            // 1. Room Depth
-                            Components.renderSlider "Room Depth (North-South)" (sprintf "%.1f m" p.RoomDepth) 6.0 24.0 0.5 p.RoomDepth SetRoomDepth dispatch
+                            // 1. Room Depth & Width
+                            Components.renderSlider "Footprint Depth" (sprintf "%.1f m" p.RoomDepth) 6.0 24.0 0.5 p.RoomDepth SetRoomDepth dispatch
+                            Components.renderSlider "Footprint Width" (sprintf "%.1f m" p.RoomWidth) 6.0 24.0 0.5 p.RoomWidth SetRoomWidth dispatch
 
-                            // 2. Room Width
-                            Components.renderSlider "Room Width (East-West)" (sprintf "%.1f m" p.RoomWidth) 6.0 24.0 0.5 p.RoomWidth SetRoomWidth dispatch
+                            // Stories Slider
+                            Components.renderSlider "Building Stories" (sprintf "%d Stories" p.StoryCount) 1.0 6.0 1.0 (float p.StoryCount) (fun v -> SetStoryCount (int v)) dispatch
 
                             // Aspect Ratio Badge
                             div {
@@ -264,69 +319,112 @@ type MainComponent() =
                                 }
                             }
 
-                            // 3. WWR
+                            // Pad Elevation Offset
+                            Components.renderSlider "Pad Elevation Offset" (sprintf "%+.2f m" p.PadElevationOffset) -2.0 2.0 0.1 p.PadElevationOffset SetPadElevationOffset dispatch
+
+                            // WWR & Envelope
                             Components.renderSlider "Window-to-Wall Ratio" (sprintf "%d%%" (int (p.Wwr * 100.0))) 0.15 0.85 0.05 p.Wwr SetWwr dispatch
+                            Components.renderSlider "Louver Angle" (sprintf "%.0f°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
+                            Components.renderSlider "Overhang Depth" (sprintf "%.2f m" p.OverhangDepth) 0.2 2.5 0.1 p.OverhangDepth SetOverhangDepth dispatch
+                            Components.renderSlider "Solar Azimuth" (sprintf "%.0f°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
+                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/m²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
 
-                            // 4. Louver Angle
-                            Components.renderSlider "Louver Angle (Tilt)" (sprintf "%.0fÂ°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
-
-                            // 5. Overhang Depth
-                            Components.renderSlider "Solar Overhang Depth" (sprintf "%.2f m" p.OverhangDepth) 0.2 2.5 0.1 p.OverhangDepth SetOverhangDepth dispatch
-
-                            // 6. Solar Azimuth
-                            Components.renderSlider "Solar Azimuth (S=0Â°)" (sprintf "%.0fÂ°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
-
-                            // 7. Glazing U-Value
-                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/mÂ²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
-
-                            // Natural Site Context Header
+                            // 02. Foundation & Compliance Status
                             div {
                                 attr.``class`` "drawer-header"
-                                attr.style "margin-top: 1.25rem;"
+                                attr.style "margin-top: 1.15rem;"
                                 div {
                                     attr.``class`` "drawer-title"
-                                    span { "ðŸŒ¿" }
-                                    " Natural Site Context"
+                                    "02. Foundation & Zoning"
                                 }
                             }
 
                             div {
                                 attr.``class`` "param-group"
-                                span { attr.``class`` "param-name"; "Site Environment Typology" }
+                                div {
+                                    attr.``class`` "strategy-badge"
+                                    span { attr.``class`` "strategy-label"; "Structural Foundation:" }
+                                    span { attr.``class`` "strategy-value"; pred.FoundationType }
+                                }
+                            }
+
+                            div {
+                                attr.``class`` "param-group"
+                                div {
+                                    attr.``class`` "strategy-badge"
+                                    span { attr.``class`` "strategy-label"; "Vehicular Access (Curb Cut):" }
+                                    let curbText = if pred.CurbCutPermitted then "Permitted (Direct)" else "Restricted (Arterial Setback)"
+                                    let curbColor = if pred.CurbCutPermitted then "#10b981" else "#f59e0b"
+                                    span { attr.``class`` "strategy-value"; attr.style (sprintf "color: %s;" curbColor); curbText }
+                                }
+                            }
+
+                            div {
+                                attr.``class`` "param-group"
+                                div {
+                                    attr.``class`` "strategy-badge"
+                                    span { attr.``class`` "strategy-label"; "Zoning Envelope Check:" }
+                                    let zoneText = if pred.ZoningCompliant then "Compliant (Within FAR & Height)" else "Non-Compliant (Exceeds Max FAR)"
+                                    let zoneColor = if pred.ZoningCompliant then "#10b981" else "#ef4444"
+                                    span { attr.``class`` "strategy-value"; attr.style (sprintf "color: %s;" zoneColor); zoneText }
+                                }
+                            }
+
+                            // 03. Topography & Environment
+                            div {
+                                attr.``class`` "drawer-header"
+                                attr.style "margin-top: 1.15rem;"
+                                div {
+                                    attr.``class`` "drawer-title"
+                                    "03. Topography & Terrain"
+                                }
+                            }
+
+                            div {
+                                attr.``class`` "param-group"
+                                span { attr.``class`` "param-name"; "Preset Typology" }
                                 select {
                                     attr.``class`` "site-preset-select"
                                     attr.value s.Preset.Key
                                     on.change (fun e -> dispatch (SelectSitePreset (SitePreset.FromKey (e.Value :?> string))))
-                                    option { attr.value "ocean"; "ðŸŒŠ Ocean Shoreline & Coastal Bluff" }
-                                    option { attr.value "mountain"; "â›°ï¸ Alpine Mountain Ridge & Peaks" }
-                                    option { attr.value "lake"; "ðŸžï¸ Inland Freshwater Lakefront" }
-                                    option { attr.value "forest"; "ðŸŒ² Forested Tree Canopy" }
-                                    option { attr.value "urban"; "ðŸ¢ Dense Urban Canyon" }
-                                    option { attr.value "studio"; "ðŸ›ï¸ Minimal Studio Plinth" }
-                                    option { attr.value "custom"; "ðŸ› ï¸ Custom Site (Interactive Sliders)" }
+                                    option { attr.value "ocean"; "Coastal Bluff" }
+                                    option { attr.value "mountain"; "Alpine Ridge" }
+                                    option { attr.value "lake"; "Lakefront" }
+                                    option { attr.value "forest"; "Forest Canopy" }
+                                    option { attr.value "urban"; "Urban Canyon" }
+                                    option { attr.value "studio"; "Studio Plinth" }
+                                    option { attr.value "custom"; "Custom" }
                                 }
                             }
 
-                            // Custom Site Builder Panel
                             cond (model.ShowCustomPanel || s.Preset = CustomSite) <| function
                                 | true -> Components.renderCustomSitePanel model.Site dispatch
                                 | false -> empty ()
 
-                            // Tree Canopy Density
                             Components.renderSlider "Tree Canopy Density" (sprintf "%d%%" (int (s.Topography.TreeDensity * 100.0))) 0.0 1.0 0.05 s.Topography.TreeDensity SetTreeDensity dispatch
 
-                            // Plant Trees Tool Button
                             div {
                                 attr.``class`` "param-group"
-                                let plantLabel = if model.PlantTreeMode then " Planting Active (Click Ground)" else " Plant Trees on Click"
+                                let plantLabel = if model.PlantTreeMode then "Planting Active" else "Plant Trees"
                                 button {
                                     attr.``class`` (if model.PlantTreeMode then "btn btn-primary" else "btn")
                                     attr.style "width: 100%; justify-content: center;"
                                     on.click (fun _ -> dispatch TogglePlantTreeMode)
-                                    span { "ðŸŒ²" }
                                     plantLabel
                                 }
                             }
+
+                            // 04. Urban Mobility, Acoustics & Zoning
+                            div {
+                                attr.``class`` "drawer-header"
+                                attr.style "margin-top: 1.15rem;"
+                                div {
+                                    attr.``class`` "drawer-title"
+                                    "04. Urban Context & Zoning"
+                                }
+                            }
+
+                            Components.renderUrbanContextBuilder model.Site dispatch
                         }
 
                         // Top HUD Camera & Toggles
@@ -336,8 +434,8 @@ type MainComponent() =
                             button { attr.``class`` (if model.ActiveCameraView = "top" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "top")); "Top" }
                             button { attr.``class`` (if model.ActiveCameraView = "south" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "south")); "South" }
                             button { attr.``class`` (if model.ActiveCameraView = "east" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "east")); "East" }
-                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "ðŸ•¸ï¸ Graph" }
-                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "ðŸ“ Wire" }
+                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "Graph" }
+                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "Wire" }
                         }
                     }
 
@@ -345,39 +443,86 @@ type MainComponent() =
                     section {
                         attr.``class`` "analytics-panel"
 
-                        // Top Performance KPI Grid
+                        // Top 4 Primary Performance KPIs (Clickable Cards Switch Active Inspection Target)
                         div {
                             attr.``class`` "kpi-grid"
-                            Components.renderKpiCard DaylightAutonomy "Daylight Autonomy (sDA)" (sprintf "%.1f" pred.SdaPercent) "%" "Target: > 55% (LEED v4)" model.ActiveTarget dispatch
-                            Components.renderKpiCard CoolingEnergy "Annual Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/mÂ²" "Surrogate: Â±4.8 RMSE" model.ActiveTarget dispatch
-                            Components.renderKpiCard StructuralStress "Peak Structural Stress" (sprintf "%.1f" pred.PeakStress) "MPa" "Capacity: 120 MPa" model.ActiveTarget dispatch
-                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCOâ‚‚e" "A1-A3 Cradle-to-Gate" model.ActiveTarget dispatch
+                            Components.renderKpiCard DaylightAutonomy "Daylight (sDA)" (sprintf "%.1f" pred.SdaPercent) "%" "Target: > 55%" model.ActiveTarget dispatch
+                            let earthworkSign = if pred.NetEarthworkM3 > 0.0 then "+" else ""
+                            Components.renderKpiCard EarthworkBalance "Net Earthwork" (sprintf "%s%.1f" earthworkSign pred.NetEarthworkM3) "m³" (sprintf "Cut: %.1f | Fill: %.1f" pred.CutVolumeM3 pred.FillVolumeM3) model.ActiveTarget dispatch
+                            Components.renderKpiCard AcousticComfort "Acoustic (R'w)" (sprintf "%.0f" pred.RequiredAcousticRwDb) "dB" (sprintf "Incident: %.1f dB" pred.FacadeNoiseLdenDb) model.ActiveTarget dispatch
+                            Components.renderKpiCard ZoningFar "Zoning FAR" (sprintf "%.2f" pred.FarRatio) "ratio" (sprintf "%.0f%% of Max %.1f" pred.FarUtilizationPct s.Urban.Zoning.MaxFar) model.ActiveTarget dispatch
                         }
 
-                        // Environmental Context Row
+                        // Topography & Terrain Telemetry Row (4 mini-boxes)
                         div {
-                            attr.style "display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin-bottom: 0.85rem;"
-                            Components.renderKpiCard MicroclimateCooling "Microclimate Cooling" (sprintf "-%.1f" pred.MicroclimateDeltaT) "Â°C" "Tree Shade & Breeze" model.ActiveTarget dispatch
-                            Components.renderKpiCard BiophilicGreenView "Biophilic Green View" (sprintf "%.0f" pred.BiophilicViewPct) "%" "Sightline Vegetation" model.ActiveTarget dispatch
-                            Components.renderKpiCard TreeCarbonOffset "Tree Biomass Offset" (sprintf "%d" pred.TreeCarbonOffset) "kg/yr" "Annual Carbon Capture" model.ActiveTarget dispatch
+                            attr.style "display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.6rem;"
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "EXCAVATION CUT" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.CutVolumeM3 }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "EMBANKMENT FILL" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.FillVolumeM3 }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "HORIZON MASK" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f°" pred.HorizonObstructionDeg }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "RUNOFF (TWI)" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f / 10" pred.RunoffRiskIndex }
+                            }
                         }
 
-                        // Analytics Header Bar with Target Tabs and Latency Chip
+                        // Urban Mobility & Demographics Telemetry Row (4 mini-boxes)
+                        div {
+                            attr.style "display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.6rem;"
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "FACADE NOISE" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f dB" pred.FacadeNoiseLdenDb }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "TRANSIT SCORE" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.0f / 100" pred.TransitConnectivityScore }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "GROSS GFA" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.0f m²" pred.GrossFloorAreaM2 }
+                            }
+                            div {
+                                attr.``class`` "telemetry-box"
+                                span { attr.``class`` "telemetry-label"; "OCCUPANT CAP" }
+                                span { attr.``class`` "telemetry-value"; sprintf "%d Pers." pred.OccupantCapacity }
+                            }
+                        }
+
+                        // Energy & Environmental Secondary Row
+                        div {
+                            attr.style "display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;"
+                            Components.renderKpiCard CoolingEnergy "Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/m²" "Surrogate: ±4.8 RMSE" model.ActiveTarget dispatch
+                            Components.renderKpiCard StructuralStress "Structural Stress" (sprintf "%.1f" pred.PeakStress) "MPa" "Limit: 140 MPa" model.ActiveTarget dispatch
+                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCO₂e" "A1-A3 with Acoustics" model.ActiveTarget dispatch
+                        }
+
+                        // Active Metric Header Bar with Latency Chip
                         div {
                             attr.``class`` "analytics-header-bar"
                             div {
-                                attr.``class`` "target-tabs"
-                                button { attr.``class`` (if model.ActiveTarget = DaylightAutonomy then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget DaylightAutonomy)); "Daylight (sDA)" }
-                                button { attr.``class`` (if model.ActiveTarget = CoolingEnergy then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget CoolingEnergy)); "Cooling Energy" }
-                                button { attr.``class`` (if model.ActiveTarget = StructuralStress then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget StructuralStress)); "Structural Stress" }
-                                button { attr.``class`` (if model.ActiveTarget = BiophilicGreenView then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget BiophilicGreenView)); "Biophilic View" }
-                                button { attr.``class`` (if model.ActiveTarget = MicroclimateCooling then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget MicroclimateCooling)); "Microclimate (Î”T)" }
+                                attr.``class`` "active-target-badge"
+                                span { attr.``class`` "active-target-label"; "Inspecting Target: " }
+                                strong { attr.``class`` "active-target-name"; model.ActiveTarget.DisplayName }
                             }
 
                             div {
                                 attr.``class`` "latency-chip"
-                                span { attr.``class`` "pulse-dot" }
-                                span { sprintf "Inference: %.2f ms (F# WebAssembly)" pred.LatencyMs }
+                                span { sprintf "Surrogate: %.2f ms [F# WebAssembly]" pred.LatencyMs }
                             }
                         }
 
@@ -388,10 +533,10 @@ type MainComponent() =
                                 attr.``class`` "chart-card"
                                 div {
                                     attr.``class`` "chart-card-header"
-                                    div { attr.``class`` "chart-title"; span { "ðŸŽ¯" }; " Parity Plot: Actual Simulation (y) vs. F# Surrogate (Å·)" }
-                                    span { attr.``class`` "chart-badge"; "RÂ² = 0.964 | 160 Samples" }
+                                    div { attr.``class`` "chart-title"; "Parity Plot: Physical Simulation (y) vs. F# Surrogate (ŷ)" }
+                                    span { attr.``class`` "chart-badge"; "R² = 0.964 | 160 Samples" }
                                 }
-                                div { attr.id "chart-parity"; attr.``class`` "chart-viewport"; attr.style "min-height: 240px;" }
+                                div { attr.id "chart-parity"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
                             }
 
                             div {
@@ -400,26 +545,25 @@ type MainComponent() =
                                     attr.``class`` "chart-card"
                                     div {
                                         attr.``class`` "chart-card-header"
-                                        div { attr.``class`` "chart-title"; span { "âš¡" }; " SHAP Feature Importance" }
+                                        div { attr.``class`` "chart-title"; "SHAP Feature Importance" }
                                         span { attr.``class`` "chart-badge"; "Mean |SHAP|" }
                                     }
-                                    div { attr.id "chart-shap"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
+                                    div { attr.id "chart-shap"; attr.``class`` "chart-viewport"; attr.style "min-height: 200px;" }
                                 }
                                 div {
                                     attr.``class`` "chart-card"
                                     div {
                                         attr.``class`` "chart-card-header"
-                                        div { attr.``class`` "chart-title"; span { "ðŸ“‰" }; " Residual Distribution" }
+                                        div { attr.``class`` "chart-title"; "Residual Distribution" }
                                         span { attr.``class`` "chart-badge"; "Centered at 0.0" }
                                     }
-                                    div { attr.id "chart-residual"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
+                                    div { attr.id "chart-residual"; attr.``class`` "chart-viewport"; attr.style "min-height: 200px;" }
                                 }
                             }
                         }
                     }
                 }
 
-                // Bottom Status Bar
                 // Map Modal
                 Components.renderMapModal model dispatch
 
@@ -428,17 +572,16 @@ type MainComponent() =
                     attr.``class`` "app-status-bar"
                     div {
                         attr.``class`` "status-left"
-                        div { attr.``class`` "status-item"; span { attr.style "color: #38bdf8;"; "â—" }; span { "Engine: "; strong { "F# Bolero WebAssembly (.NET 10)" } } }
-                        div { attr.``class`` "status-item"; span { attr.style "color: #10b981;"; "â—" }; span { "Site Context: "; strong { s.Name } } }
-                        div { attr.``class`` "status-item"; span { attr.style "color: #a855f7;"; "â—" }; span { "Mesh Format: "; strong { "glTF 2.0 (Khronos)" } } }
+                        div { attr.``class`` "status-item"; span { "Engine: "; strong { "F# Bolero WebAssembly" } } }
+                        div { attr.``class`` "status-item"; span { "Site: "; strong { s.Name } } }
+                        div { attr.``class`` "status-item"; span { "Zoning FAR: "; strong { sprintf "%.2f (Max %.1f)" pred.FarRatio s.Urban.Zoning.MaxFar } } }
+                        div { attr.``class`` "status-item"; span { "Noise: "; strong { sprintf "%.1f dB (R'w %.0f dB)" pred.FacadeNoiseLdenDb pred.RequiredAcousticRwDb } } }
                     }
                     div {
                         attr.``class`` "status-right"
-                        div { attr.``class`` "status-item"; span { "Architecture: "; strong { "Pure F# MVU + Zero-License Browser Client" } } }
+                        div { attr.``class`` "status-item"; span { "Transit: "; strong { sprintf "%.0f/100" pred.TransitConnectivityScore } } }
                     }
                 }
             }
 
         Program.mkProgram init update view
-
-
