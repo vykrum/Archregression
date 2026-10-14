@@ -5,9 +5,7 @@
 *.css linguist-vendored=true
 *.html linguist-vendored=true
 wwwroot/** linguist-vendored=true
-public/** linguist-vendored=true
 headless_pipeline/** linguist-vendored=true
-bolero/** linguist-vendored=true
 
 *.fs linguist-detectable=true
 *.fsproj linguist-detectable=true

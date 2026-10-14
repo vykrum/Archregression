@@ -132,7 +132,7 @@ def generate_parametric_atrium_mesh(
 
 
 def main():
-    output_dir = os.path.join(os.path.dirname(__file__), "..", "public", "data")
+    output_dir = os.path.join(os.path.dirname(__file__), "..", "src", "Archregression", "wwwroot", "data")
     os.makedirs(output_dir, exist_ok=True)
     glb_path = os.path.join(output_dir, "sample_lattice.glb")
 

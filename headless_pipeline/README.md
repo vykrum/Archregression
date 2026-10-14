@@ -29,7 +29,7 @@ pip install -r requirements.txt
 ```bash
 python generate_glb.py
 ```
-- Outputs: `../public/data/sample_lattice.glb`
+- Outputs: `../src/Archregression/wwwroot/data/sample_lattice.glb`
 - Encodes surface irradiance and structural stress directly into per-vertex RGBA buffers.
 
 ### 3. Train Surrogate Model & Export to ONNX

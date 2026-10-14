@@ -2,17 +2,49 @@
  * wwwroot/js/viewportInterop.js
  * =============================
  * JavaScript Interop Bridge called directly by F# Bolero WebAssembly.
- * Connects F# Domain Models to Three.js WebGL rendering and Leaflet GIS.
+ * Connects F# Domain Models to Three.js WebGL rendering, Plotly regression analytics, and GIS.
  */
 
-import { SpatialViewport } from '../../../../src/viewer/viewport.js';
+import { SpatialViewport } from './viewport.js';
+import { RegressionAnalytics } from './analytics.js';
 
 let viewportInstance = null;
+let analyticsInstance = null;
+
+const targetMap = {
+  'sda': 'sda_percent',
+  'cooling': 'cooling_load',
+  'stress': 'peak_stress',
+  'carbon': 'embodied_carbon',
+  'biophilia': 'biophilic_view',
+  'microclimate': 'microclimate_cooling'
+};
 
 export function initViewport() {
   const container = document.getElementById('viewport-3d');
   if (container && !viewportInstance) {
-    viewportInstance = new SpatialViewport(container);
+    try {
+      viewportInstance = new SpatialViewport(container);
+    } catch (e) {
+      console.warn('[Interop] Viewport init error:', e);
+    }
+  }
+
+  const parityEl = document.getElementById('chart-parity');
+  const shapEl = document.getElementById('chart-shap');
+  const residualEl = document.getElementById('chart-residual');
+
+  if (parityEl && shapEl && residualEl && !analyticsInstance) {
+    try {
+      analyticsInstance = new RegressionAnalytics({
+        parity: parityEl,
+        shap: shapEl,
+        residual: residualEl
+      });
+      analyticsInstance.initialize();
+    } catch (e) {
+      console.warn('[Interop] Analytics init error:', e);
+    }
   }
 }
 
@@ -26,6 +58,9 @@ window.archInterop = {
     if (viewportInstance) {
       viewportInstance.updateParameters(params);
     }
+    if (analyticsInstance && params) {
+      analyticsInstance.updateCurrentDesign(params);
+    }
   },
 
   applySite: (siteData) => {
@@ -38,6 +73,10 @@ window.archInterop = {
   setMetric: (metricKey) => {
     if (viewportInstance) {
       viewportInstance.setMetric(metricKey);
+    }
+    if (analyticsInstance) {
+      const target = targetMap[metricKey] || metricKey;
+      analyticsInstance.setTarget(target);
     }
   },
 
@@ -72,7 +111,14 @@ window.archInterop = {
   }
 };
 
-// Initialize as soon as container is mounted
-setTimeout(() => {
+// Retry initialization until Blazor mounts DOM elements
+let initAttempts = 0;
+const pollInterval = setInterval(() => {
+  initAttempts++;
   initViewport();
-}, 200);
+  if (viewportInstance && analyticsInstance) {
+    clearInterval(pollInterval);
+  } else if (initAttempts > 20) {
+    clearInterval(pollInterval);
+  }
+}, 250);

@@ -1,5 +1,5 @@
 /**
- * src/viewer/viewport.js
+ * wwwroot/js/viewport.js
  * ======================
  * Three.js 3D Spatial Viewer with Dynamic Topography & Variable Site Context:
  * - Real 3D Mountain Topography (Alpine ridgelines, rock cliffs, snow peaks)

@@ -46,27 +46,34 @@
 
 ```text
 Archregression/
-├── Archregression.sln                 # Primary .NET 10 Solution file
+├── Archregression.sln                 # Primary .NET Solution file
 ├── Archregression.slnx                # Modern XML-based .NET 10 solution
 ├── .gitattributes                     # GitHub Linguist rules (marks repo as 100% F#)
+├── .gitignore                         # Standard .NET / Python gitignore
+├── serve.ps1                          # PowerShell launcher script
 ├── src/
 │   └── Archregression/               # Primary F# WebAssembly Project
-│       ├── Archregression.fsproj     # .NET 8.0/10.0 Blazor WebAssembly SDK
+│       ├── Archregression.fsproj     # .NET Blazor WebAssembly SDK
 │       ├── Domain.fs                  # F# Types: Architecture, Site, Topography, KPIs
 │       ├── Topography.fs              # F# Procedural 3D terrain & heightfield math
 │       ├── Surrogate.fs               # F# Functional surrogate ML regression engine
 │       ├── Generative.fs              # F# Multi-objective genetic optimizer
 │       ├── SiteAnalysis.fs            # F# Geographic slope, aspect & biome detection
-│       ├── Interop.fs                 # F# JSInterop bridge for Three.js & Leaflet
+│       ├── Interop.fs                 # F# JSInterop bridge for Three.js & Plotly
 │       ├── Components.fs              # Bolero Elmish UI views (HUD, Sliders, Cards)
 │       ├── Main.fs                    # Elmish MVU Orchestrator (Model-View-Update)
 │       ├── Startup.fs                 # WebAssembly entrypoint
-│       └── wwwroot/                   # Static web assets
+│       └── wwwroot/                   # WebAssembly static assets
 │           ├── index.html             # Web host shell
 │           ├── css/index.css          # Dark studio design system
-│           └── js/viewportInterop.js  # Three.js WebGL canvas bridge
+│           ├── js/
+│           │   ├── viewport.js        # Three.js 3D spatial & procedural topography
+│           │   ├── analytics.js       # Plotly regression analytics charts
+│           │   └── viewportInterop.js # F# JSInterop bridge
+│           ├── data/                  # Benchmark datasets & floorplans
+│           └── models/                # Surrogate weights
 ├── headless_pipeline/                 # Python mesh & training pipeline
-└── .github/workflows/deploy.yml       # GitHub Actions automated deploy to Pages
+└── .github/workflows/deploy.yml       # Automated GitHub Pages CI/CD workflow
 ```
 
 ---

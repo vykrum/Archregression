@@ -1,5 +1,5 @@
 /**
- * src/charts/analytics.js
+ * wwwroot/js/analytics.js
  * =======================
  * Real-time Regression & Analytics Engine.
  * 
@@ -85,7 +85,7 @@ export class RegressionAnalytics {
 
   async initialize() {
     try {
-      const response = await fetch('./public/data/benchmark_dataset.json');
+      const response = await fetch('data/benchmark_dataset.json');
       if (response.ok) {
         this.benchmarkData = await response.json();
       } else {

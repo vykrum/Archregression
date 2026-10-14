@@ -28,8 +28,8 @@ import numpy as np
 
 # Output directories
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-MODELS_DIR = os.path.join(BASE_DIR, "public", "models")
-DATA_DIR = os.path.join(BASE_DIR, "public", "data")
+MODELS_DIR = os.path.join(BASE_DIR, "src", "Archregression", "wwwroot", "models")
+DATA_DIR = os.path.join(BASE_DIR, "src", "Archregression", "wwwroot", "data")
 os.makedirs(MODELS_DIR, exist_ok=True)
 os.makedirs(DATA_DIR, exist_ok=True)
 
