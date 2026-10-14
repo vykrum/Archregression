@@ -206,12 +206,16 @@ module Components =
                 div {
                     attr.``class`` "modal-body"
                     div {
-                        attr.``class`` "map-preset-pills"
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset OceanCoastline)); "Sausalito, CA" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset AlpineMountain)); "Chamonix Alps" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset InlandLake)); "Lake Zurich" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset ForestCanopy)); "Black Forest" }
-                        button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset CustomSite)); "Atacama Plateau" }
+                        attr.style "display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.6rem;"
+                        button {
+                            attr.``class`` "btn btn-primary"
+                            on.click (fun _ -> dispatch DetectCurrentLocation)
+                            "📍 Detect Current Location"
+                        }
+                        span {
+                            attr.style "font-size: 0.78rem; color: #94a3b8;"
+                            "Detects GPS / IP location and fetches real satellite elevation grid"
+                        }
                     }
                     div {
                         attr.id "map-coords-readout"

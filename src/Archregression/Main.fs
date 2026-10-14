@@ -1,4 +1,4 @@
-﻿namespace Archregression
+namespace Archregression
 
 open System
 open Elmish
@@ -35,8 +35,15 @@ type MainComponent() =
                   ShowWireframe = false
                   ActiveCameraView = "iso"
                   IsOptimizing = false }
+            let detectCmd =
+                Cmd.OfTask.perform
+                    (fun () -> bridge.DetectLocationAsync())
+                    ()
+                    (function
+                     | Some site -> ApplySiteFromMap site
+                     | None -> CloseMapModal)
 
-            initialModel, Cmd.none
+            initialModel, detectCmd
 
         let update msg model =
             match msg with
@@ -174,6 +181,16 @@ type MainComponent() =
                 let cmd =
                     Cmd.OfTask.perform
                         (fun () -> bridge.GetMapSiteAsync())
+                        ()
+                        (function
+                         | Some site -> ApplySiteFromMap site
+                         | None -> CloseMapModal)
+                model, cmd
+
+            | DetectCurrentLocation ->
+                let cmd =
+                    Cmd.OfTask.perform
+                        (fun () -> bridge.DetectLocationAsync())
                         ()
                         (function
                          | Some site -> ApplySiteFromMap site
@@ -399,7 +416,7 @@ type MainComponent() =
                                 attr.``class`` "kpi-card"
                                 attr.style "cursor: pointer; margin-bottom: 0.6rem; border: 1px solid #38bdf8;"
                                 on.click (fun _ -> dispatch OpenMapModal)
-                                div { attr.``class`` "kpi-title"; "Active Geographic Site (Satellite DEM)" }
+                                div { attr.``class`` "kpi-title"; "Active Site Location" }
                                 div { attr.``class`` "kpi-meta"; sprintf "%s" s.Name }
                                 div {
                                     attr.``class`` "kpi-value-row"
@@ -408,31 +425,24 @@ type MainComponent() =
                                 }
                                 div {
                                     attr.``class`` "kpi-meta"
-                                    sprintf "Slope: %.1fÂ° (%s) | Relief: %.0f m | 81 DEM Points" s.Topography.TerrainSlope s.Topography.SlopeDirection.DisplayName s.Topography.Ruggedness
-                                }
-                            }
-
-                            // Geographic Site Bookmarks
-                            div {
-                                attr.``class`` "param-group"
-                                span { attr.``class`` "param-name"; "Location Bookmarks" }
-                                div {
-                                    attr.``class`` "map-preset-pills"
-                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset OceanCoastline)); "Sausalito" }
-                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset AlpineMountain)); "Chamonix" }
-                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset InlandLake)); "Zurich" }
-                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset ForestCanopy)); "Black Forest" }
-                                    button { attr.``class`` "map-preset-btn"; on.click (fun _ -> dispatch (SelectSitePreset CustomSite)); "Atacama" }
+                                    sprintf "Lat: %.4f° | Lng: %.4f° | Slope: %.1f° (%s) | Relief: %.0f m" s.Latitude s.Longitude s.Topography.TerrainSlope s.Topography.SlopeDirection.DisplayName s.Topography.Ruggedness
                                 }
                             }
 
                             div {
                                 attr.``class`` "param-group"
+                                attr.style "display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; margin-bottom: 0.6rem;"
                                 button {
                                     attr.``class`` "btn btn-primary"
-                                    attr.style "width: 100%; justify-content: center; margin-bottom: 0.4rem;"
+                                    attr.style "justify-content: center;"
+                                    on.click (fun _ -> dispatch DetectCurrentLocation)
+                                    "📍 Detect Location"
+                                }
+                                button {
+                                    attr.``class`` "btn"
+                                    attr.style "justify-content: center;"
                                     on.click (fun _ -> dispatch OpenMapModal)
-                                    "Choose Location on World Map"
+                                    "🗺 Open Map"
                                 }
                             }
 

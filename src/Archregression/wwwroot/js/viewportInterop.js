@@ -75,10 +75,42 @@ window.archInterop = {
     initMapPicker();
   },
 
-  selectMapPreset: (presetKey) => {
+  detectLocation: () => {
     if (mapPickerInstance) {
-      mapPickerInstance.selectPreset(presetKey);
+      mapPickerInstance.detectCurrentLocation();
     }
+  },
+
+  detectLocationAsync: () => {
+    return new Promise((resolve) => {
+      if (mapPickerInstance) {
+        mapPickerInstance.detectCurrentLocation((site) => {
+          resolve(JSON.stringify(site));
+        });
+      } else {
+        if ('geolocation' in navigator) {
+          navigator.geolocation.getCurrentPosition(
+            async (pos) => {
+              const lat = pos.coords.latitude;
+              const lng = pos.coords.longitude;
+              try {
+                const elevUrl = `https://api.open-meteo.com/v1/elevation?latitude=${lat}&longitude=${lng}`;
+                const res = await fetch(elevUrl);
+                const elevData = await res.json();
+                const elev = elevData && elevData.elevation ? elevData.elevation[0] : 100.0;
+                resolve(JSON.stringify({ name: 'Current Detected Site', lat, lng, elevation: elev, elevationGrid: [] }));
+              } catch (_) {
+                resolve(null);
+              }
+            },
+            () => resolve(null),
+            { timeout: 6000 }
+          );
+        } else {
+          resolve(null);
+        }
+      }
+    });
   },
 
   applyMapSite: () => {

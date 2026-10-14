@@ -3,9 +3,9 @@
  * =======================
  * Interactive Global Map Site Picker using Leaflet & OpenStreetMap.
  * 
- * Dynamically queries real satellite DEM elevation data (81-point grid) from Open-Meteo API
- * for ANY location clicked or searched on Earth. Replaces synthetic preset topography with
- * authentic real-world elevation, slope, aspect, relief, and hydrological features.
+ * Automatically detects the user's current geographical location (via GPS / IP fallback),
+ * places the marker on their site, and queries real satellite DEM elevation data (81-point grid)
+ * from the Open-Meteo API. Users can also click or drag anywhere globally.
  */
 
 export class GlobalMapPicker {
@@ -16,23 +16,23 @@ export class GlobalMapPicker {
     this.marker = null;
     this.queryDebounceTimer = null;
 
-    // Active site state with default 81-point DEM grid (Sausalito, CA)
+    // Active site state with default 81-point DEM grid
     this.currentSite = {
-      name: 'Sausalito Coastal Bluff & Bay, California',
+      name: 'Current Site Location',
       lat: 37.8590,
       lng: -122.4853,
       elevation: 18.0,
       slope: 14.0,
       slopeDir: 'south',
       ruggedness: 37.0,
-      preset: 'ocean',
-      waterType: 'ocean',
+      preset: 'custom',
+      waterType: 'none',
       waterProximity: 20.0,
       mountainHeight: 37.0,
       treeDensity: 0.60,
-      biome: 'coastal',
-      hasWater: true,
-      hasOcean: true,
+      biome: 'temperate',
+      hasWater: false,
+      hasOcean: false,
       hasLake: false,
       urbanContext: false,
       elevationGrid: [
@@ -88,6 +88,9 @@ export class GlobalMapPicker {
     setTimeout(() => {
       if (this.map) this.map.invalidateSize();
     }, 200);
+
+    // Auto-detect user geographical location and place current site
+    this.detectCurrentLocation();
   }
 
   updateMarkerPopup() {
@@ -96,16 +99,70 @@ export class GlobalMapPicker {
     const content = `
       <div style="font-family:'Inter',sans-serif; font-size:12px; color:#1e293b; min-width:200px;">
         <strong style="color:#0284c7;">${s.name}</strong><br>
+        <strong>Coordinates:</strong> ${s.lat.toFixed(4)}°, ${s.lng.toFixed(4)}°<br>
         <strong>Elevation:</strong> ${Math.round(s.elevation)} m MSL<br>
         <strong>Slope:</strong> ${s.slope.toFixed(1)}° (${s.slopeDir})<br>
-        <strong>Relief / Ruggedness:</strong> ${Math.round(s.ruggedness)} m<br>
-        <strong>Satellite DEM:</strong> <span style="background:#e0f2fe; color:#0369a1; padding:2px 5px; border-radius:4px; font-weight:600;">81 Points (9×9)</span>
+        <strong>Relief Span:</strong> ${Math.round(s.ruggedness)} m<br>
+        <strong>Topography:</strong> <span style="background:#e0f2fe; color:#0369a1; padding:2px 5px; border-radius:4px; font-weight:600;">Satellite DEM (81 pts)</span>
       </div>
     `;
     this.marker.bindPopup(content).openPopup();
   }
 
-  analyzeSite(lat, lng) {
+  detectCurrentLocation(callback) {
+    const coordsElem = document.getElementById('map-coords-readout');
+    if (coordsElem) {
+      coordsElem.textContent = 'Detecting current geographical position...';
+    }
+
+    const onLocationFound = (lat, lng, locName) => {
+      this.currentSite.lat = lat;
+      this.currentSite.lng = lng;
+      if (locName) this.currentSite.name = locName;
+      if (this.map) {
+        this.map.flyTo([lat, lng], 14, { duration: 1.2 });
+        if (this.marker) this.marker.setLatLng([lat, lng]);
+      }
+      this.analyzeSite(lat, lng, callback);
+    };
+
+    if ('geolocation' in navigator) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const lat = pos.coords.latitude;
+          const lng = pos.coords.longitude;
+          onLocationFound(lat, lng, 'Current Detected Site');
+        },
+        async (err) => {
+          console.warn('[MapPicker] Browser geolocation unavailable, checking IP location:', err);
+          await this.fallbackIpLocation(onLocationFound);
+        },
+        { enableHighAccuracy: true, timeout: 6000, maximumAge: 60000 }
+      );
+    } else {
+      this.fallbackIpLocation(onLocationFound);
+    }
+  }
+
+  async fallbackIpLocation(onFound) {
+    try {
+      const res = await fetch('https://ipapi.co/json/');
+      if (res.ok) {
+        const data = await res.json();
+        if (data && data.latitude && data.longitude) {
+          const name = `${data.city || 'Detected Site'}, ${data.region || ''} ${data.country_name || ''}`.trim();
+          onFound(data.latitude, data.longitude, name);
+          return;
+        }
+      }
+    } catch (e) {
+      console.warn('[MapPicker] IP fallback failed:', e);
+    }
+    // Retain active site coordinates if fallback fails
+    onFound(this.currentSite.lat, this.currentSite.lng, this.currentSite.name);
+  }
+
+  analyzeSite(lat, lng, callback) {
     if (this.queryDebounceTimer) clearTimeout(this.queryDebounceTimer);
 
     const coordsElem = document.getElementById('map-coords-readout');
@@ -220,6 +277,10 @@ export class GlobalMapPicker {
         if (this.onSiteSelected) {
           this.onSiteSelected(this.currentSite);
         }
+
+        if (callback) {
+          callback(this.currentSite);
+        }
       } catch (err) {
         console.warn('[MapPicker] Satellite DEM query error:', err);
         if (coordsElem) {
@@ -227,55 +288,6 @@ export class GlobalMapPicker {
         }
       }
     }, 280);
-  }
-
-  selectPreset(presetKey) {
-    const bookmarks = {
-      sausalito: {
-        name: 'Sausalito Coastal Bluff & Bay, California',
-        lat: 37.8590,
-        lng: -122.4853
-      },
-      chamonix: {
-        name: 'Chamonix Mont-Blanc, French Alps',
-        lat: 45.9237,
-        lng: 6.8694
-      },
-      zermatt: {
-        name: 'Zermatt Matterhorn Valley, Swiss Alps',
-        lat: 45.9763,
-        lng: 7.7491
-      },
-      zurich: {
-        name: 'Lake Zurich Waterfront, Switzerland',
-        lat: 47.3686,
-        lng: 8.5391
-      },
-      tahoe: {
-        name: 'Emerald Bay, Lake Tahoe, California',
-        lat: 38.9545,
-        lng: -120.0984
-      },
-      atacama: {
-        name: 'Valle de la Luna, Atacama Plateau, Chile',
-        lat: -22.9234,
-        lng: -68.2974
-      },
-      blackforest: {
-        name: 'Black Forest Ridge & Canopy, Germany',
-        lat: 48.1833,
-        lng: 8.1667
-      }
-    };
-
-    const s = bookmarks[presetKey] || bookmarks.sausalito;
-    if (s && this.map) {
-      this.map.flyTo([s.lat, s.lng], 13, { duration: 1.2 });
-      if (this.marker) {
-        this.marker.setLatLng([s.lat, s.lng]);
-      }
-      this.analyzeSite(s.lat, s.lng);
-    }
   }
 
   applyCurrentSite() {

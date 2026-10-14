@@ -465,6 +465,7 @@ type Message =
     | SetMaxFar of float
     | UpdateRoadType of RoadClassification
     | RequestApplyMapSite
+    | DetectCurrentLocation
     | ApplySiteFromMap of SiteLocation
     | OpenMapModal
     | CloseMapModal
