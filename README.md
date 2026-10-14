@@ -2,7 +2,6 @@
 
 > **Open-Source Architectural Surrogate Regression, 3D Topography & Generative Lab**  
 > Written **100% in F# (`.fs`)** powered by **ML.NET (`Microsoft.ML`)**, **Bolero WebAssembly (.NET 10)**, and **SharpGLTF (Khronos Group)**.  
-> Eliminates Python, pip, virtualenvs, and proprietary CAD/BIM software (Rhino, Grasshopper, Revit) in favor of a single unified .NET toolchain, type-safe ML inference, and WebGL/WebGPU spatial tooling aligned with **[Hywe](https://github.com/vykrum/Hywe)**.
 
 ---
 
