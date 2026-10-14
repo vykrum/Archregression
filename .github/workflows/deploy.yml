@@ -1,4 +1,4 @@
-name: Deploy to GitHub Pages
+﻿name: Deploy to GitHub Pages
 
 on:
   push:
@@ -33,6 +33,7 @@ jobs:
         run: |
           dotnet publish src/Archregression/Archregression.fsproj -c Release -o release
           touch release/wwwroot/.nojekyll
+          cp release/wwwroot/index.html release/wwwroot/404.html
 
       - name: Setup Pages
         uses: actions/configure-pages@v5
