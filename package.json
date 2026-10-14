@@ -1,0 +1,30 @@
+{
+  "name": "arch-regression-web",
+  "version": "1.0.0",
+  "description": "Open-Source Browser-Based Architectural Regression & 3D Surrogate Inspection Lab",
+  "author": "Architecture & Machine Learning Lab",
+  "license": "Apache-2.0",
+  "type": "module",
+  "scripts": {
+    "start": "npx serve . -l 3000",
+    "serve": "python -m http.server 3000",
+    "pipeline:mesh": "python headless_pipeline/generate_glb.py",
+    "pipeline:train": "python headless_pipeline/train_surrogate.py"
+  },
+  "keywords": [
+    "architecture",
+    "surrogate-modeling",
+    "onnx-runtime-web",
+    "threejs",
+    "webgl",
+    "gltf",
+    "duckdb-wasm",
+    "machine-learning",
+    "building-performance"
+  ],
+  "dependencies": {
+    "three": "^0.165.0",
+    "onnxruntime-web": "^1.18.0",
+    "plotly.js-dist-min": "^2.32.0"
+  }
+}

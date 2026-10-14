@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Architectural Regression Lab — Open-Source Browser Stack</title>
+  <meta name="description" content="Open-source browser-based architectural regression & surrogate modeling lab with Three.js WebGL spatial viewer and ONNX Runtime Web client-side inference.">
+
+  <!-- Typography -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Outfit:wght@500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Plotly CDN for Regression Analytics Charts -->
+  <script src="https://cdn.jsdelivr.net/npm/plotly.js-dist-min@2.32.0/plotly.min.js"></script>
+
+  <!-- ONNX Runtime Web CDN for Client-Side Surrogate Inference -->
+  <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+
+  <!-- ES Module Import Map -->
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.165.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.165.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <!-- Design System Stylesheet -->
+  <link rel="stylesheet" href="./index.css">
+</head>
+<body>
+
+  <!-- Top Application Header -->
+  <header class="app-header">
+    <div class="brand-section">
+      <div class="brand-logo" id="btn-brand">🏛️</div>
+      <div class="brand-text">
+        <h1>ArchRegression.web</h1>
+        <p>Open-Source Browser-Based Architectural Surrogate Lab</p>
+      </div>
+      <div class="tech-pills">
+        <span class="pill" title="Binary glTF for 3D meshes & per-vertex attributes"><span class="dot cyan"></span>glTF / GLB</span>
+        <span class="pill" title="In-browser client ML inference (<5ms)"><span class="dot"></span>ONNX Web</span>
+        <span class="pill" title="Tabular regression matrices queried client-side"><span class="dot cyan"></span>Parquet / Arrow</span>
+        <span class="pill" title="Zero-license WebGL spatial rendering"><span class="dot"></span>Three.js</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <button class="btn" id="btn-open-geojson" title="Inspect 2D Floor Plan & Spatial Adjacencies">
+        <span>🗺️</span> 2D GeoJSON
+      </button>
+      <button class="btn" id="btn-open-parquet" title="Inspect Tabular Feature Matrix (X) and Simulation Targets (y)">
+        <span>📊</span> Parquet Matrix
+      </button>
+      <button class="btn" id="btn-open-architecture" title="View Full Open-Source Stack Architecture Blueprint">
+        <span>📑</span> Architecture
+      </button>
+      <button class="btn btn-primary" id="btn-export-glb" title="Export Live 3D Building with Vertex Attributes to Khronos GLB">
+        <span>💾</span> Export GLB
+      </button>
+    </div>
+  </header>
+
+  <!-- Main Split-Screen Workspace -->
+  <main class="main-workspace">
+
+    <!-- Left: 3D Spatial Viewport (Three.js WebGL / WebGPU) -->
+    <section class="viewport-panel" id="viewport-panel">
+      <div id="viewport-3d"></div>
+
+      <!-- Floating Parametric Controls Drawer -->
+      <aside class="parameters-drawer" id="parameters-drawer">
+        <div class="drawer-header">
+          <div class="drawer-title">
+            <span>⚙️</span> Parametric Controls
+          </div>
+          <button class="hud-btn" id="btn-reset-params" title="Reset to Baseline Parameters">Reset</button>
+        </div>
+
+        <!-- 1. Room Depth -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Room Depth</span>
+            <span class="param-val" id="val-depth">14.0 m</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-depth" min="6.0" max="24.0" step="0.5" value="14.0">
+        </div>
+
+        <!-- 2. Room Width -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Room Width</span>
+            <span class="param-val" id="val-width">12.0 m</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-width" min="6.0" max="22.0" step="0.5" value="12.0">
+        </div>
+
+        <!-- 3. Aspect Ratio (Derived) -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Aspect Ratio (D/W)</span>
+            <span class="param-val" id="val-aspect">1.17</span>
+          </div>
+        </div>
+
+        <!-- 4. Window-to-Wall Ratio (WWR) -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Window-to-Wall Ratio (WWR)</span>
+            <span class="param-val" id="val-wwr">55%</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-wwr" min="0.15" max="0.85" step="0.05" value="0.55">
+        </div>
+
+        <!-- 5. Shading Louver Angle -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Louver Tilt Angle</span>
+            <span class="param-val" id="val-louver">35°</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-louver" min="0" max="75" step="5" value="35">
+        </div>
+
+        <!-- 6. Overhang Depth -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Roof Overhang Depth</span>
+            <span class="param-val" id="val-overhang">1.0 m</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-overhang" min="0.0" max="2.5" step="0.25" value="1.0">
+        </div>
+
+        <!-- 7. Building Orientation / Azimuth -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Solar Azimuth (S=0°)</span>
+            <span class="param-val" id="val-azimuth">0° (South)</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-azimuth" min="-90" max="90" step="5" value="0">
+        </div>
+
+        <!-- 8. Glazing U-Value -->
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Glazing U-Value</span>
+            <span class="param-val" id="val-uval">1.8 W/m²K</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-uval" min="0.8" max="3.2" step="0.1" value="1.8">
+        </div>
+      </aside>
+
+      <!-- Top HUD: Camera Presets & Toggles -->
+      <div class="viewport-top-hud">
+        <button class="hud-btn active" id="btn-view-iso" title="Isometric Perspective">Iso</button>
+        <button class="hud-btn" id="btn-view-top" title="Top Down Plan View">Top</button>
+        <button class="hud-btn" id="btn-view-south" title="South Facade Elevation">South</button>
+        <button class="hud-btn" id="btn-view-east" title="East Elevation">East</button>
+        <button class="hud-btn" id="btn-toggle-graph" title="Toggle 3D Spatial Room Adjacency Graph">🕸️ Graph</button>
+        <button class="hud-btn" id="btn-toggle-wire" title="Toggle Wireframe Overlay">📐 Wire</button>
+      </div>
+
+      <!-- Bottom HUD: Heatmap Colormap & Section Clipping -->
+      <div class="viewport-bottom-hud">
+        <div class="colorbar-widget">
+          <span class="colorbar-title" id="legend-metric-name">Daylight Autonomy (sDA)</span>
+          <div>
+            <div class="colorbar-gradient-bar" id="legend-gradient-bar"></div>
+            <div class="colorbar-labels">
+              <span id="legend-min">0%</span>
+              <span id="legend-mid">50%</span>
+              <span id="legend-max">100%</span>
+            </div>
+          </div>
+        </div>
+
+        <div class="section-slider-group">
+          <label class="toggle-switch">
+            <input type="checkbox" id="toggle-section-cut">
+            <span>Section Cut</span>
+          </label>
+          <input type="range" class="slider-input" id="slider-section-depth" min="0" max="1" step="0.02" value="0.5" style="width: 110px;" disabled>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right: Regression & Analysis UI (Plotly / Observable) -->
+    <section class="analytics-panel" id="analytics-panel">
+
+      <!-- Real-time Predicted Performance KPIs -->
+      <div class="kpi-grid">
+        <!-- Target 1: Daylight -->
+        <div class="kpi-card active" data-target="sda_percent" id="kpi-sda">
+          <div class="kpi-title">Daylight Autonomy (sDA)</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-sda">58.4</span>
+            <span class="kpi-unit">%</span>
+          </div>
+          <div class="kpi-sub" id="kpi-sub-sda">Target: &gt; 55% (LEED v4)</div>
+        </div>
+
+        <!-- Target 2: Cooling Energy -->
+        <div class="kpi-card" data-target="cooling_load" id="kpi-cooling">
+          <div class="kpi-title">Annual Cooling Energy</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-cooling">68.2</span>
+            <span class="kpi-unit">kWh/m²</span>
+          </div>
+          <div class="kpi-sub" id="kpi-sub-cooling">Surrogate: ±4.8 RMSE</div>
+        </div>
+
+        <!-- Target 3: Structural Stress -->
+        <div class="kpi-card" data-target="peak_stress" id="kpi-stress">
+          <div class="kpi-title">Peak Structural Stress</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-stress">34.6</span>
+            <span class="kpi-unit">MPa</span>
+          </div>
+          <div class="kpi-sub" id="kpi-sub-stress">Capacity: 120 MPa</div>
+        </div>
+
+        <!-- Target 4: Embodied Carbon -->
+        <div class="kpi-card" data-target="embodied_carbon" id="kpi-carbon">
+          <div class="kpi-title">Embodied Carbon</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-carbon">342.0</span>
+            <span class="kpi-unit">kgCO₂e</span>
+          </div>
+          <div class="kpi-sub" id="kpi-sub-carbon">A1-A3 Cradle-to-Gate</div>
+        </div>
+      </div>
+
+      <!-- Target Selector Tabs & In-Browser Inference Telemetry -->
+      <div class="analytics-header-bar">
+        <div class="target-tabs">
+          <button class="target-tab active" data-target="sda_percent">Daylight (sDA)</button>
+          <button class="target-tab" data-target="cooling_load">Cooling Energy</button>
+          <button class="target-tab" data-target="peak_stress">Structural Stress</button>
+          <button class="target-tab" data-target="embodied_carbon">Embodied Carbon</button>
+        </div>
+
+        <div class="latency-chip" id="latency-chip" title="Client-side ONNX surrogate evaluation speed">
+          <span class="pulse-dot"></span>
+          <span id="latency-text">Inference: 1.4 ms (Local ML)</span>
+        </div>
+      </div>
+
+      <!-- Charts Section -->
+      <div class="charts-grid">
+        <!-- 1. Parity Plot: Actual Simulation vs Surrogate Prediction -->
+        <div class="chart-card">
+          <div class="chart-card-header">
+            <div class="chart-title">
+              <span>🎯</span> Parity Plot: Actual Simulation ($y$) vs. Surrogate ($\hat{y}$)
+            </div>
+            <span class="chart-badge" id="parity-metric-badge">R² = 0.964 | 160 Samples</span>
+          </div>
+          <div id="chart-parity" class="chart-viewport" style="min-height: 250px;"></div>
+        </div>
+
+        <!-- 2. SHAP & Residual Distribution Side-by-Side -->
+        <div class="charts-row-split">
+          <!-- SHAP Feature Importance -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-title">
+                <span>⚡</span> SHAP Feature Importance
+              </div>
+              <span class="chart-badge">Mean |SHAP|</span>
+            </div>
+            <div id="chart-shap" class="chart-viewport" style="min-height: 230px;"></div>
+          </div>
+
+          <!-- Residual Distribution -->
+          <div class="chart-card">
+            <div class="chart-card-header">
+              <div class="chart-title">
+                <span>📉</span> Residual Distribution ($y - \hat{y}$)
+              </div>
+              <span class="chart-badge">Centered at 0.0</span>
+            </div>
+            <div id="chart-residual" class="chart-viewport" style="min-height: 230px;"></div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <!-- Bottom Open-Source Tech Status Bar -->
+  <footer class="app-status-bar">
+    <div class="status-left">
+      <div class="status-item">
+        <span style="color:#38bdf8;">●</span>
+        <span>Mesh Format: <strong>glTF / GLB 2.0 (Khronos)</strong></span>
+      </div>
+      <div class="status-item">
+        <span style="color:#10b981;">●</span>
+        <span>Matrix Storage: <strong>Apache Parquet / Arrow IPC</strong></span>
+      </div>
+      <div class="status-item">
+        <span style="color:#a855f7;">●</span>
+        <span>Spatial Graph: <strong>GeoJSON RFC 7946</strong></span>
+      </div>
+    </div>
+    <div class="status-right">
+      <div class="status-item">
+        <span>Pipeline: <strong>Headless Python (Trimesh) → Zero-License Browser Client</strong></span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ======================================================================
+       MODAL 1: GeoJSON 2D Floor Plan & Spatial Network Inspector
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-geojson">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🗺️</span> 2D GeoJSON Floor Plan & Room Adjacency Network
+        </div>
+        <button class="modal-close-btn" id="btn-close-geojson">&times;</button>
+      </div>
+      <div class="modal-body" id="geojson-viewer-container">
+        <!-- Rendered by GeoJsonFloorplanViewer -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 2: Parquet / Tabular Regression Matrix Inspector
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-parquet">
+    <div class="modal-dialog" style="max-width: 960px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📊</span> Apache Parquet / Arrow IPC Tabular Matrix ($X$ and $y$)
+        </div>
+        <button class="modal-close-btn" id="btn-close-parquet">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 12px;">
+          Tabular regression matrix queried directly via WebAssembly (DuckDB-Wasm). 
+          Displays geometric features $X$ and headless ground-truth simulation targets $y$.
+        </p>
+        <div class="table-wrapper">
+          <table class="data-table" id="parquet-data-table">
+            <thead>
+              <tr>
+                <th>ID</th>
+                <th>Depth (m)</th>
+                <th>Width (m)</th>
+                <th>WWR</th>
+                <th>Louver (°)</th>
+                <th>Overhang (m)</th>
+                <th>sDA (%)</th>
+                <th>Cooling</th>
+                <th>Stress (MPa)</th>
+                <th>Carbon</th>
+              </tr>
+            </thead>
+            <tbody id="parquet-tbody">
+              <!-- Populated dynamically -->
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 3: Open-Source Architecture Blueprint
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-architecture">
+    <div class="modal-dialog">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>📑</span> Open-Source Browser Stack Architecture
+        </div>
+        <button class="modal-close-btn" id="btn-close-architecture">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p><strong>Faster, lighter, and 100% reproducible:</strong> Eliminates all proprietary CAD/BIM desktop software licenses (Rhino, Grasshopper, Revit) in favor of web-native open formats and WebGL/WebGPU tooling.</p>
+        <br>
+        <table class="data-table" style="text-align: left;">
+          <thead>
+            <tr>
+              <th>Layer</th>
+              <th>Open-Source Tool / Format</th>
+              <th>Execution Environment</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><strong>Geometry & Features</strong></td>
+              <td><code>trimesh</code>, <code>shapely</code>, <code>networkx</code></td>
+              <td>Headless Linux container (Cloud run / batch)</td>
+            </tr>
+            <tr>
+              <td><strong>Tabular Matrix</strong></td>
+              <td>Apache Parquet (<code>pyarrow</code> / <code>polars</code>)</td>
+              <td>Cloud Object Store / Hugging Face Datasets</td>
+            </tr>
+            <tr>
+              <td><strong>3D Asset Format</strong></td>
+              <td>GLB (Binary glTF)</td>
+              <td>Cloud Object Store</td>
+            </tr>
+            <tr>
+              <td><strong>Surrogate Model</strong></td>
+              <td>Scikit-learn / PyTorch &rarr; <strong>ONNX</strong></td>
+              <td>Python (training) &rarr; Browser (inference)</td>
+            </tr>
+            <tr>
+              <td><strong>3D Rendering</strong></td>
+              <td>Three.js / WebGL / WebGPU</td>
+              <td>Web Browser</td>
+            </tr>
+            <tr>
+              <td><strong>Analytics & UI</strong></td>
+              <td>Plotly.js + DuckDB-Wasm</td>
+              <td>Web Browser</td>
+            </tr>
+          </tbody>
+        </table>
+        <br>
+        <p><small>Client-side surrogate evaluation computes multi-target regression in under 5ms, updating 3D vertex colors and parity plots in real-time.</small></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Application Entry Point ES Module -->
+  <script type="module">
+    import { SpatialViewport } from './src/viewer/viewport.js';
+    import { SurrogateInferenceEngine } from './src/inference/surrogate.js';
+    import { RegressionAnalytics } from './src/charts/analytics.js';
+    import { GeoJsonFloorplanViewer } from './src/data/geojsonViewer.js';
+
+    // 1. Initialize Components
+    const viewportContainer = document.getElementById('viewport-3d');
+    const viewport = new SpatialViewport(viewportContainer);
+
+    const surrogate = new SurrogateInferenceEngine();
+    const analytics = new RegressionAnalytics({
+      parity: document.getElementById('chart-parity'),
+      shap: document.getElementById('chart-shap'),
+      residual: document.getElementById('chart-residual')
+    });
+
+    const geojsonViewer = new GeoJsonFloorplanViewer(
+      document.getElementById('geojson-viewer-container')
+    );
+
+    // Current State
+    let activeTarget = 'sda_percent';
+    const params = {
+      room_depth: 14.0,
+      room_width: 12.0,
+      wwr: 0.55,
+      louver_angle: 35.0,
+      overhang_depth: 1.0,
+      orientation_azimuth: 0.0,
+      glazing_u_val: 1.8
+    };
+
+    // 2. Start Application
+    async function boot() {
+      await surrogate.initialize();
+      await analytics.initialize();
+      await geojsonViewer.loadFloorplan();
+      populateParquetTable();
+
+      // Trigger initial prediction
+      runEvaluation();
+    }
+
+    // 3. Live Evaluation Function (<5ms)
+    function runEvaluation() {
+      const predResult = surrogate.predict(params);
+
+      // Update KPI Cards
+      document.getElementById('kpi-val-sda').textContent = predResult.targets.sda_percent;
+      document.getElementById('kpi-val-cooling').textContent = predResult.targets.cooling_load;
+      document.getElementById('kpi-val-stress').textContent = predResult.targets.peak_stress;
+      document.getElementById('kpi-val-carbon').textContent = predResult.targets.embodied_carbon;
+
+      // Update Latency Chip
+      document.getElementById('latency-text').textContent = 
+        `Inference: ${predResult.latencyMs} ms (${predResult.inferenceMode})`;
+
+      // Update 3D Spatial Geometry & Vertex Heatmap
+      viewport.updateParameters(params);
+
+      // Update Parity, SHAP, and Residual Charts
+      analytics.updateCurrentDesign(predResult);
+    }
+
+    // 4. Wire Parametric Range Sliders
+    function setupSlider(id, paramKey, valId, formatter) {
+      const slider = document.getElementById(id);
+      const valDisplay = document.getElementById(valId);
+      slider.addEventListener('input', (e) => {
+        const val = parseFloat(e.target.value);
+        params[paramKey] = val;
+        valDisplay.textContent = formatter(val);
+
+        // Update aspect ratio readout
+        const aspect = (params.room_depth / Math.max(0.1, params.room_width)).toFixed(2);
+        document.getElementById('val-aspect').textContent = aspect;
+
+        runEvaluation();
+      });
+    }
+
+    setupSlider('slider-depth', 'room_depth', 'val-depth', v => `${v.toFixed(1)} m`);
+    setupSlider('slider-width', 'room_width', 'val-width', v => `${v.toFixed(1)} m`);
+    setupSlider('slider-wwr', 'wwr', 'val-wwr', v => `${Math.round(v * 100)}%`);
+    setupSlider('slider-louver', 'louver_angle', 'val-louver', v => `${Math.round(v)}°`);
+    setupSlider('slider-overhang', 'overhang_depth', 'val-overhang', v => `${v.toFixed(2)} m`);
+    setupSlider('slider-azimuth', 'orientation_azimuth', 'val-azimuth', v => `${Math.round(v)}°`);
+    setupSlider('slider-uval', 'glazing_u_val', 'val-uval', v => `${v.toFixed(1)} W/m²K`);
+
+    // Reset Parameters
+    document.getElementById('btn-reset-params').addEventListener('click', () => {
+      params.room_depth = 14.0;
+      params.room_width = 12.0;
+      params.wwr = 0.55;
+      params.louver_angle = 35.0;
+      params.overhang_depth = 1.0;
+      params.orientation_azimuth = 0.0;
+      params.glazing_u_val = 1.8;
+
+      document.getElementById('slider-depth').value = 14.0;
+      document.getElementById('val-depth').textContent = '14.0 m';
+      document.getElementById('slider-width').value = 12.0;
+      document.getElementById('val-width').textContent = '12.0 m';
+      document.getElementById('val-aspect').textContent = '1.17';
+      document.getElementById('slider-wwr').value = 0.55;
+      document.getElementById('val-wwr').textContent = '55%';
+      document.getElementById('slider-louver').value = 35;
+      document.getElementById('val-louver').textContent = '35°';
+      document.getElementById('slider-overhang').value = 1.0;
+      document.getElementById('val-overhang').textContent = '1.0 m';
+      document.getElementById('slider-azimuth').value = 0;
+      document.getElementById('val-azimuth').textContent = '0° (South)';
+      document.getElementById('slider-uval').value = 1.8;
+      document.getElementById('val-uval').textContent = '1.8 W/m²K';
+
+      runEvaluation();
+    });
+
+    // 5. Target Tabs & KPI Card Switching
+    function switchActiveTarget(newTarget) {
+      activeTarget = newTarget;
+
+      // Update Tab Styles
+      document.querySelectorAll('.target-tab').forEach(tab => {
+        tab.classList.toggle('active', tab.dataset.target === newTarget);
+      });
+
+      // Update KPI Card Styles
+      document.querySelectorAll('.kpi-card').forEach(card => {
+        card.classList.toggle('active', card.dataset.target === newTarget);
+      });
+
+      // Update Viewport Heatmap
+      viewport.setMetric(newTarget);
+
+      // Update Analytics
+      analytics.setTarget(newTarget);
+
+      // Update Colorbar Legend
+      updateColorbarLegend(newTarget);
+    }
+
+    document.querySelectorAll('.target-tab').forEach(tab => {
+      tab.addEventListener('click', () => switchActiveTarget(tab.dataset.target));
+    });
+
+    document.querySelectorAll('.kpi-card').forEach(card => {
+      card.addEventListener('click', () => switchActiveTarget(card.dataset.target));
+    });
+
+    function updateColorbarLegend(target) {
+      const titleElem = document.getElementById('legend-metric-name');
+      const minElem = document.getElementById('legend-min');
+      const midElem = document.getElementById('legend-mid');
+      const maxElem = document.getElementById('legend-max');
+
+      switch (target) {
+        case 'sda_percent':
+          titleElem.textContent = 'Daylight Autonomy (sDA)';
+          minElem.textContent = '0%';
+          midElem.textContent = '50%';
+          maxElem.textContent = '100%';
+          break;
+        case 'cooling_load':
+          titleElem.textContent = 'Solar Radiation / Cooling Load';
+          minElem.textContent = '20 kWh';
+          midElem.textContent = '80 kWh';
+          maxElem.textContent = '145 kWh';
+          break;
+        case 'peak_stress':
+          titleElem.textContent = 'Von Mises Surface Stress';
+          minElem.textContent = '5 MPa';
+          midElem.textContent = '50 MPa';
+          maxElem.textContent = '100 MPa';
+          break;
+        case 'embodied_carbon':
+          titleElem.textContent = 'Embodied Carbon Intensity';
+          minElem.textContent = '180 kg';
+          midElem.textContent = '380 kg';
+          maxElem.textContent = '580 kg';
+          break;
+      }
+    }
+
+    // 6. Camera HUD View Controls
+    const viewButtons = {
+      'btn-view-iso': 'iso',
+      'btn-view-top': 'top',
+      'btn-view-south': 'south',
+      'btn-view-east': 'east'
+    };
+
+    Object.entries(viewButtons).forEach(([btnId, viewKey]) => {
+      document.getElementById(btnId).addEventListener('click', (e) => {
+        Object.keys(viewButtons).forEach(id => document.getElementById(id).classList.remove('active'));
+        e.target.classList.add('active');
+        viewport.setCameraView(viewKey);
+      });
+    });
+
+    // 3D Spatial Graph Overlay Toggle
+    let graphVisible = true;
+    document.getElementById('btn-toggle-graph').addEventListener('click', (e) => {
+      graphVisible = !graphVisible;
+      e.target.classList.toggle('active', graphVisible);
+      viewport.toggleSpatialGraph(graphVisible);
+    });
+
+    // Wireframe Toggle
+    let wireVisible = false;
+    document.getElementById('btn-toggle-wire').addEventListener('click', (e) => {
+      wireVisible = !wireVisible;
+      e.target.classList.toggle('active', wireVisible);
+      viewport.toggleWireframe(wireVisible);
+    });
+
+    // Section Cut Clipping
+    const sectionToggle = document.getElementById('toggle-section-cut');
+    const sectionSlider = document.getElementById('slider-section-depth');
+
+    sectionToggle.addEventListener('change', (e) => {
+      sectionSlider.disabled = !e.target.checked;
+      viewport.setSectionClipping(e.target.checked, parseFloat(sectionSlider.value));
+    });
+
+    sectionSlider.addEventListener('input', (e) => {
+      if (sectionToggle.checked) {
+        viewport.setSectionClipping(true, parseFloat(e.target.value));
+      }
+    });
+
+    // GLB Export Trigger
+    document.getElementById('btn-export-glb').addEventListener('click', () => {
+      viewport.exportGLB();
+    });
+
+    // 7. Modals (GeoJSON, Parquet Matrix, Architecture)
+    function wireModal(btnOpenId, modalId, btnCloseId) {
+      const btnOpen = document.getElementById(btnOpenId);
+      const modal = document.getElementById(modalId);
+      const btnClose = document.getElementById(btnCloseId);
+
+      btnOpen.addEventListener('click', () => modal.classList.add('active'));
+      btnClose.addEventListener('click', () => modal.classList.remove('active'));
+      modal.addEventListener('click', (e) => {
+        if (e.target === modal) modal.classList.remove('active');
+      });
+    }
+
+    wireModal('btn-open-geojson', 'modal-geojson', 'btn-close-geojson');
+    wireModal('btn-open-parquet', 'modal-parquet', 'btn-close-parquet');
+    wireModal('btn-open-architecture', 'modal-architecture', 'btn-close-architecture');
+
+    // Populate Parquet matrix table from benchmark_dataset.json
+    async function populateParquetTable() {
+      try {
+        const response = await fetch('./public/data/benchmark_dataset.json');
+        if (!response.ok) return;
+        const data = await response.json();
+        const tbody = document.getElementById('parquet-tbody');
+        tbody.innerHTML = data.slice(0, 15).map(row => `
+          <tr>
+            <td>#${row.id}</td>
+            <td>${row.room_depth}</td>
+            <td>${row.room_width}</td>
+            <td>${row.wwr}</td>
+            <td>${row.louver_angle}°</td>
+            <td>${row.overhang_depth}</td>
+            <td style="color:#38bdf8;">${row.actual_sda_percent}%</td>
+            <td>${row.actual_cooling_load}</td>
+            <td>${row.actual_peak_stress}</td>
+            <td>${row.actual_embodied_carbon}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        console.warn('Could not populate parquet table', err);
+      }
+    }
+
+    // Launch!
+    boot();
+  </script>
+</body>
+</html>

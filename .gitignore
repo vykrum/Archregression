@@ -1,0 +1,20 @@
+# Build outputs & dependencies
+node_modules/
+dist/
+bin/
+obj/
+*.user
+*.suo
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+env/
+venv/
+
+# Logs & temp
+*.log
+.DS_Store
+Thumbs.db

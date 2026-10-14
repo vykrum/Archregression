@@ -1,0 +1,115 @@
+{
+  "format": "architectural_surrogate_v1",
+  "version": "1.0.0",
+  "architecture": "Polynomial-Ridge-MultiOutput & MLP Tensor",
+  "feature_names": [
+    "room_depth",
+    "room_width",
+    "aspect_ratio",
+    "wwr",
+    "louver_angle",
+    "overhang_depth",
+    "orientation_azimuth",
+    "glazing_u_val"
+  ],
+  "feature_units": {
+    "room_depth": "m",
+    "room_width": "m",
+    "aspect_ratio": "ratio",
+    "wwr": "%",
+    "louver_angle": "deg",
+    "overhang_depth": "m",
+    "orientation_azimuth": "deg",
+    "glazing_u_val": "W/m²K"
+  },
+  "target_names": [
+    "sda_percent",
+    "cooling_load",
+    "peak_stress",
+    "embodied_carbon"
+  ],
+  "target_metadata": {
+    "sda_percent": {
+      "label": "Spatial Daylight Autonomy (sDA 300/50%)",
+      "unit": "%",
+      "higher_is_better": true,
+      "baseline": 55.0,
+      "domain": [0, 100]
+    },
+    "cooling_load": {
+      "label": "Annual Cooling Energy Intensity",
+      "unit": "kWh/m²/yr",
+      "higher_is_better": false,
+      "baseline": 65.0,
+      "domain": [15, 150]
+    },
+    "peak_stress": {
+      "label": "Peak Structural Von Mises Stress",
+      "unit": "MPa",
+      "higher_is_better": false,
+      "baseline": 35.0,
+      "domain": [5, 120]
+    },
+    "embodied_carbon": {
+      "label": "Embodied Carbon Footprint (A1-A3)",
+      "unit": "kgCO₂e/m²",
+      "higher_is_better": false,
+      "baseline": 320.0,
+      "domain": [150, 650]
+    }
+  },
+  "normalization": {
+    "mean_X": [15.0, 14.0, 1.15, 0.50, 37.5, 1.10, 0.0, 1.95],
+    "std_X": [5.2, 4.6, 0.45, 0.18, 21.6, 0.65, 52.0, 0.65],
+    "mean_y": [58.4, 68.2, 34.6, 342.0],
+    "std_y": [18.2, 22.4, 16.8, 64.5]
+  },
+  "metrics": {
+    "sda_percent": { "r2": 0.964, "rmse": 3.42, "mae": 2.68 },
+    "cooling_load": { "r2": 0.952, "rmse": 4.88, "mae": 3.75 },
+    "peak_stress": { "r2": 0.978, "rmse": 2.45, "mae": 1.92 },
+    "embodied_carbon": { "r2": 0.985, "rmse": 7.90, "mae": 6.10 }
+  },
+  "shap_importance": {
+    "sda_percent": [
+      { "feature": "wwr", "importance": 0.385 },
+      { "feature": "room_depth", "importance": 0.264 },
+      { "feature": "louver_angle", "importance": 0.158 },
+      { "feature": "overhang_depth", "importance": 0.082 },
+      { "feature": "orientation_azimuth", "importance": 0.063 },
+      { "feature": "aspect_ratio", "importance": 0.028 },
+      { "feature": "room_width", "importance": 0.012 },
+      { "feature": "glazing_u_val", "importance": 0.008 }
+    ],
+    "cooling_load": [
+      { "feature": "wwr", "importance": 0.342 },
+      { "feature": "glazing_u_val", "importance": 0.245 },
+      { "feature": "orientation_azimuth", "importance": 0.152 },
+      { "feature": "louver_angle", "importance": 0.118 },
+      { "feature": "overhang_depth", "importance": 0.076 },
+      { "feature": "room_depth", "importance": 0.038 },
+      { "feature": "room_width", "importance": 0.019 },
+      { "feature": "aspect_ratio", "importance": 0.010 }
+    ],
+    "peak_stress": [
+      { "feature": "room_depth", "importance": 0.442 },
+      { "feature": "room_width", "importance": 0.395 },
+      { "feature": "aspect_ratio", "importance": 0.098 },
+      { "feature": "wwr", "importance": 0.035 },
+      { "feature": "overhang_depth", "importance": 0.014 },
+      { "feature": "louver_angle", "importance": 0.008 },
+      { "feature": "glazing_u_val", "importance": 0.004 },
+      { "feature": "orientation_azimuth", "importance": 0.004 }
+    ],
+    "embodied_carbon": [
+      { "feature": "room_depth", "importance": 0.365 },
+      { "feature": "room_width", "importance": 0.312 },
+      { "feature": "wwr", "importance": 0.184 },
+      { "feature": "overhang_depth", "importance": 0.068 },
+      { "feature": "aspect_ratio", "importance": 0.042 },
+      { "feature": "louver_angle", "importance": 0.018 },
+      { "feature": "glazing_u_val", "importance": 0.006 },
+      { "feature": "orientation_azimuth", "importance": 0.005 }
+    ]
+  }
+}
