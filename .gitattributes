@@ -1,11 +1,10 @@
 # GitHub Linguist Language Configuration
-# Ensures GitHub identifies Archregression as a primarily F# project
+# Ensures GitHub identifies Archregression as a 100% F# project
 
 *.js linguist-vendored=true
 *.css linguist-vendored=true
 *.html linguist-vendored=true
 wwwroot/** linguist-vendored=true
-headless_pipeline/** linguist-vendored=true
 
 *.fs linguist-detectable=true
 *.fsproj linguist-detectable=true

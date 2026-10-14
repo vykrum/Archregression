@@ -4,11 +4,9 @@
     <TargetFramework>net8.0</TargetFramework>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Domain.fs" />
-    <Compile Include="Topography.fs" />
-    <Compile Include="Surrogate.fs" />
-    <Compile Include="Generative.fs" />
-    <Compile Include="SiteAnalysis.fs" />
+    <ProjectReference Include="..\Archregression.Core\Archregression.Core.fsproj" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Include="Interop.fs" />
     <Compile Include="Components.fs" />
     <Compile Include="Main.fs" />

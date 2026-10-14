@@ -1,5 +1,7 @@
 <Solution>
   <Folder Name="/src/">
+    <Project Path="src/Archregression.Core/Archregression.Core.fsproj" />
     <Project Path="src/Archregression/Archregression.fsproj" />
+    <Project Path="src/Archregression.Trainer/Archregression.Trainer.fsproj" />
   </Folder>
 </Solution>

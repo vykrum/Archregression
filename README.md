@@ -1,8 +1,8 @@
-# Archregression 🏛️⚡ (F# WebAssembly Edition)
+# Archregression 🏛️⚡ (100% F# & ML.NET Edition)
 
 > **Open-Source Architectural Surrogate Regression, 3D Topography & Generative Lab**  
-> Written primarily in **F# (`.fs`)** for browser WebAssembly, zero-license reproducibility, and seamless alignment with the **[Hywe](https://github.com/vykrum/Hywe)** computational design ecosystem.  
-> Eliminates proprietary CAD/BIM desktop software licenses (Rhino, Grasshopper, Revit) in favor of open formats, pure functional F# ML inference, and WebGL/WebGPU spatial tooling.
+> Written **100% in F# (`.fs`)** powered by **ML.NET (`Microsoft.ML`)**, **Bolero WebAssembly (.NET 10)**, and **SharpGLTF (Khronos Group)**.  
+> Eliminates Python, pip, virtualenvs, and proprietary CAD/BIM software (Rhino, Grasshopper, Revit) in favor of a single unified .NET toolchain, type-safe ML inference, and WebGL/WebGPU spatial tooling aligned with **[Hywe](https://github.com/vykrum/Hywe)**.
 
 ---
 
@@ -16,29 +16,31 @@
 │ (Three.js via JSInterop) │ (Bolero Elmish MVU + Plotly)│
 │                          │                             │
 │ • Procedural mountains   │ • Parity plot (Actual vs ŷ) │
-│ • Shimmering ocean wave  │ • SHAP feature importance   │
+│ • Shimmering ocean wave  │ • ML.NET PFI / SHAP charts  │
 │ • Retaining foundations  │ • Sub-millisecond ML engine │
 │ • Biome-adaptive trees   │ • Real-time genetic search  │
 └──────────────────────────┴─────────────────────────────┘
 ```
 
-1. **Primarily F# (`.fs`) Functional Architecture**:
-   - **`Domain.fs`**: Strongly typed domain modeling with discriminated unions and records for architectural parameters, biomes, topography, and simulation targets.
-   - **`Topography.fs`**: Pure functional procedural 3D heightfield generator calculating alpine ridgelines, coastal bluff drops, ocean beaches, lake depressions, and elevation-dependent vertex color shading.
-   - **`Surrogate.fs`**: High-performance multi-target regression evaluator implemented in pure F# executing in under 0.5ms in WebAssembly.
-   - **`Generative.fs`**: Multi-objective genetic optimization search in F# synthesizing Pareto-optimal geometries across 500 permutations in <150ms.
-   - **`SiteAnalysis.fs`**: Real-world elevation and topographic gradient calculations (slope, aspect, ruggedness, and biome classification).
-   - **`Main.fs` & `Components.fs`**: Elmish Model-View-Update (MVU) interactive studio interface with Bolero HTML DSL.
+1. **100% F# / .NET 10 Monorepo**:
+   - **`Archregression.Core`**: Shared domain models (`Domain.fs`), procedural terrain generator (`Topography.fs`), high-performance surrogate evaluator (`Surrogate.fs`), and Pareto genetic optimizer (`Generative.fs`).
+   - **`Archregression`**: Interactive browser studio running in WebAssembly via Bolero and Elmish MVU.
+   - **`Archregression.Trainer`**: Headless ML.NET training engine and SharpGLTF 3D mesh generator.
 
-2. **3D Spatial Topography & Natural Context**:
+2. **ML.NET FastTree Surrogate Regression & PFI**:
+   - Fits multi-target FastTree regression models across daylight autonomy ($sDA$), cooling energy, peak structural stress, embodied carbon, microclimate $\Delta T$, and biophilia.
+   - Calculates **Permutation Feature Importance (PFI)** to quantify exact sensitivity for every architectural variable.
+   - Replaces all legacy Python scripts (`scikit-learn`, `trimesh`, `pyarrow`) with pure, compiled F# executing at native speed.
+
+3. **3D Spatial Topography & Natural Context**:
    - **Ocean Coastlines**: Elevated coastal bluffs, beaches, and expansive shimmering ocean water planes with wave oscillation and surf foam.
    - **Alpine Mountains**: Procedural mountain ridges with rock crags, alpine meadows, and glaciated snow caps.
    - **Inland Lakes**: Freshwater basins with riparian shores and mixed temperate canopies.
    - **Interactive Custom Site Builder**: Full manual control over peak height, slope, ruggedness, water type, shoreline distance, and tree density.
 
-3. **Open, Zero-License Stack**:
-   - **glTF / GLB 2.0 (Khronos Group)**: One-click export of 3D meshes with per-vertex heatmaps directly from the browser.
-   - **Hugging Face Hub Dataset**: Benchmark dataset available at **[`vykrum/arch-regression-dataset`](https://huggingface.co/datasets/vykrum/arch-regression-dataset)**.
+4. **Open, Zero-License Stack**:
+   - **SharpGLTF (Khronos Group)**: Native .NET 3D binary glTF (GLB) mesh synthesis with per-vertex RGBA heatmaps.
+   - **Hugging Face Hub Dataset**: Benchmark dataset live at **[`vykrum/arch-regression-dataset`](https://huggingface.co/datasets/vykrum/arch-regression-dataset)**.
 
 ---
 
@@ -46,77 +48,74 @@
 
 ```text
 Archregression/
-├── Archregression.sln                 # Primary .NET Solution file
+├── Archregression.sln                 # Complete Visual Studio / CLI Solution
 ├── Archregression.slnx                # Modern XML-based .NET 10 solution
-├── .gitattributes                     # GitHub Linguist rules (marks repo as 100% F#)
-├── .gitignore                         # Standard .NET / Python gitignore
+├── .gitattributes                     # Linguist rules (marks repo as 100% F#)
+├── .gitignore                         # Standard .NET / IDE gitignore
 ├── serve.ps1                          # PowerShell launcher script
 ├── src/
-│   └── Archregression/               # Primary F# WebAssembly Project
-│       ├── Archregression.fsproj     # .NET Blazor WebAssembly SDK
-│       ├── Domain.fs                  # F# Types: Architecture, Site, Topography, KPIs
-│       ├── Topography.fs              # F# Procedural 3D terrain & heightfield math
-│       ├── Surrogate.fs               # F# Functional surrogate ML regression engine
-│       ├── Generative.fs              # F# Multi-objective genetic optimizer
-│       ├── SiteAnalysis.fs            # F# Geographic slope, aspect & biome detection
-│       ├── Interop.fs                 # F# JSInterop bridge for Three.js & Plotly
-│       ├── Components.fs              # Bolero Elmish UI views (HUD, Sliders, Cards)
-│       ├── Main.fs                    # Elmish MVU Orchestrator (Model-View-Update)
-│       ├── Startup.fs                 # WebAssembly entrypoint
-│       └── wwwroot/                   # WebAssembly static assets
-│           ├── index.html             # Web host shell
-│           ├── css/index.css          # Dark studio design system
-│           ├── js/
-│           │   ├── viewport.js        # Three.js 3D spatial & procedural topography
-│           │   ├── analytics.js       # Plotly regression analytics charts
-│           │   └── viewportInterop.js # F# JSInterop bridge
-│           ├── data/                  # Benchmark datasets & floorplans
-│           └── models/                # Surrogate weights
-├── headless_pipeline/                 # Python mesh & training pipeline
+│   ├── Archregression.Core/          # 🧠 Shared Pure F# Domain & Math Engine
+│   │   ├── Archregression.Core.fsproj
+│   │   ├── Domain.fs                  # F# Types: Architecture, Site, Topography, KPIs
+│   │   ├── Topography.fs              # Pure F# procedural 3D heightfield math
+│   │   ├── Surrogate.fs               # Pure F# surrogate ML regression engine (<0.5ms)
+│   │   ├── Generative.fs              # Multi-objective genetic optimizer (500 perms in <150ms)
+│   │   └── SiteAnalysis.fs            # Geographic slope, aspect & biome classification
+│   │
+│   ├── Archregression/               # 🌐 Bolero WebAssembly Client (Blazor WASM)
+│   │   ├── Archregression.fsproj
+│   │   ├── Interop.fs                 # JSInterop bridge for Three.js & Plotly
+│   │   ├── Components.fs              # Bolero Elmish UI views (HUD, Sliders, KPI Cards)
+│   │   ├── Main.fs                    # Elmish MVU Orchestrator (Model-View-Update)
+│   │   ├── Startup.fs                 # WebAssembly entrypoint
+│   │   └── wwwroot/                   # WebAssembly static assets
+│   │       ├── index.html             # Web host shell
+│   │       ├── css/index.css          # Dark studio design system
+│   │       ├── js/
+│   │       │   ├── viewport.js        # Three.js 3D spatial & procedural topography
+│   │       │   ├── analytics.js       # Plotly regression analytics charts
+│   │       │   └── viewportInterop.js # F# JSInterop bridge
+│   │       ├── data/                  # Benchmark datasets, GLB meshes & floorplans
+│   │       └── models/                # ML.NET models & surrogate weights
+│   │
+│   └── Archregression.Trainer/       # 🚀 ML.NET Surrogate Trainer & SharpGLTF Pipeline
+│       ├── Archregression.Trainer.fsproj
+│       ├── Types.fs                   # Strongly typed ML.NET schemas
+│       ├── DatasetGenerator.fs        # Multi-physics parametric simulation sampler
+│       ├── SurrogateTrainer.fs        # FastTree regressors, metrics & PFI feature rankings
+│       ├── MeshBuilder.fs             # Headless 3D glTF/GLB generator via SharpGLTF
+│       └── Program.fs                 # CLI tool generating weights, benchmarks & GLB
 └── .github/workflows/deploy.yml       # Automated GitHub Pages CI/CD workflow
 ```
 
 ---
 
-## 🚀 Building & Running the F# Project
+## 🚀 Building & Running
 
-### Build with .NET 10 SDK:
+### 1. Build the Entire Solution (.NET 10 SDK)
 ```bash
 dotnet build Archregression.sln
 ```
-*Builds with **0 Warnings, 0 Errors**.*
+*Builds with **0 Warnings, 0 Errors** across all 3 projects.*
 
-### Run the WebAssembly Studio:
+### 2. Run the ML.NET Training Pipeline
 ```bash
+dotnet run --project src/Archregression.Trainer
+```
+*Trains FastTree models for all 6 targets, computes Permutation Feature Importance, generates `sample_lattice.glb`, and updates `wwwroot` assets.*
+
+### 3. Launch the WebAssembly Studio
+```powershell
+./serve.ps1
+# or
 dotnet run --project src/Archregression
 ```
-The Bolero WebAssembly app will launch and run natively in your browser via Blazor WASM.
+*Launches the Bolero WebAssembly app natively in your browser.*
 
 ---
 
-### 3. Pushing to GitHub (`vykrum/Archregression`)
+## 📄 License & Attribution
 
-1. Create a new repository on [GitHub](https://github.com/new) named **`Archregression`**.
-2. Run the following commands:
-```bash
-cd C:\Users\vykru\.gemini\antigravity-ide\scratch\Archregression
-git add .
-git commit -m "feat: rename project to Archregression and unify Bolero & HF datasets"
-git remote add origin https://github.com/vykrum/Archregression.git
-git branch -M main
-git push -u origin main
-```
-*Note: GitHub Actions will automatically deploy the web studio to **GitHub Pages** via `.github/workflows/deploy.yml`.*
-
----
-
-### 4. Accessing the Benchmark Dataset
-
-The regression matrix of geometric features ($X$) and simulation targets ($y$) is available locally at [`public/data/benchmark_dataset.json`](file:///C:/Users/vykru/.gemini/antigravity-ide/scratch/Archregression/public/data/benchmark_dataset.json) and on Hugging Face:
-
-```python
-from datasets import load_dataset
-
-# Load directly from Hugging Face Hub
-dataset = load_dataset("vykrum/arch-regression-dataset")
-```
+- Licensed under **Apache-2.0**.
+- Built with **F#**, **ML.NET**, **Bolero**, **Three.js**, and **SharpGLTF**.
+- Designed to integrate seamlessly with **[Hywe](https://github.com/vykrum/Hywe)**.

@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Domain.fs" />
+    <Compile Include="Topography.fs" />
+    <Compile Include="Surrogate.fs" />
+    <Compile Include="Generative.fs" />
+    <Compile Include="SiteAnalysis.fs" />
+  </ItemGroup>
+
+</Project>

@@ -1,115 +1,678 @@
 {
-  "format": "architectural_surrogate_v1",
-  "version": "1.0.0",
-  "architecture": "Polynomial-Ridge-MultiOutput & MLP Tensor",
-  "feature_names": [
-    "room_depth",
-    "room_width",
-    "aspect_ratio",
-    "wwr",
-    "louver_angle",
-    "overhang_depth",
-    "orientation_azimuth",
-    "glazing_u_val"
-  ],
-  "feature_units": {
-    "room_depth": "m",
-    "room_width": "m",
-    "aspect_ratio": "ratio",
-    "wwr": "%",
-    "louver_angle": "deg",
-    "overhang_depth": "m",
-    "orientation_azimuth": "deg",
-    "glazing_u_val": "W/m²K"
-  },
-  "target_names": [
-    "sda_percent",
-    "cooling_load",
-    "peak_stress",
-    "embodied_carbon"
-  ],
-  "target_metadata": {
-    "sda_percent": {
-      "label": "Spatial Daylight Autonomy (sDA 300/50%)",
-      "unit": "%",
-      "higher_is_better": true,
-      "baseline": 55.0,
-      "domain": [0, 100]
-    },
-    "cooling_load": {
-      "label": "Annual Cooling Energy Intensity",
-      "unit": "kWh/m²/yr",
-      "higher_is_better": false,
-      "baseline": 65.0,
-      "domain": [15, 150]
-    },
-    "peak_stress": {
-      "label": "Peak Structural Von Mises Stress",
-      "unit": "MPa",
-      "higher_is_better": false,
-      "baseline": 35.0,
-      "domain": [5, 120]
-    },
-    "embodied_carbon": {
-      "label": "Embodied Carbon Footprint (A1-A3)",
-      "unit": "kgCO₂e/m²",
-      "higher_is_better": false,
-      "baseline": 320.0,
-      "domain": [150, 650]
-    }
-  },
-  "normalization": {
-    "mean_X": [15.0, 14.0, 1.15, 0.50, 37.5, 1.10, 0.0, 1.95],
-    "std_X": [5.2, 4.6, 0.45, 0.18, 21.6, 0.65, 52.0, 0.65],
-    "mean_y": [58.4, 68.2, 34.6, 342.0],
-    "std_y": [18.2, 22.4, 16.8, 64.5]
-  },
-  "metrics": {
-    "sda_percent": { "r2": 0.964, "rmse": 3.42, "mae": 2.68 },
-    "cooling_load": { "r2": 0.952, "rmse": 4.88, "mae": 3.75 },
-    "peak_stress": { "r2": 0.978, "rmse": 2.45, "mae": 1.92 },
-    "embodied_carbon": { "r2": 0.985, "rmse": 7.90, "mae": 6.10 }
-  },
-  "shap_importance": {
+  "shap_rankings": {
     "sda_percent": [
-      { "feature": "wwr", "importance": 0.385 },
-      { "feature": "room_depth", "importance": 0.264 },
-      { "feature": "louver_angle", "importance": 0.158 },
-      { "feature": "overhang_depth", "importance": 0.082 },
-      { "feature": "orientation_azimuth", "importance": 0.063 },
-      { "feature": "aspect_ratio", "importance": 0.028 },
-      { "feature": "room_width", "importance": 0.012 },
-      { "feature": "glazing_u_val", "importance": 0.008 }
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 1.3581
+      },
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 0.7224
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.1669
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.0241
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.0236
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.005
+      }
     ],
     "cooling_load": [
-      { "feature": "wwr", "importance": 0.342 },
-      { "feature": "glazing_u_val", "importance": 0.245 },
-      { "feature": "orientation_azimuth", "importance": 0.152 },
-      { "feature": "louver_angle", "importance": 0.118 },
-      { "feature": "overhang_depth", "importance": 0.076 },
-      { "feature": "room_depth", "importance": 0.038 },
-      { "feature": "room_width", "importance": 0.019 },
-      { "feature": "aspect_ratio", "importance": 0.010 }
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.4523
+      },
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 0.4128
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.3355
+      },
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 0.2743
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.2003
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.1441
+      },
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 0.034
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.0241
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.005
+      }
     ],
     "peak_stress": [
-      { "feature": "room_depth", "importance": 0.442 },
-      { "feature": "room_width", "importance": 0.395 },
-      { "feature": "aspect_ratio", "importance": 0.098 },
-      { "feature": "wwr", "importance": 0.035 },
-      { "feature": "overhang_depth", "importance": 0.014 },
-      { "feature": "louver_angle", "importance": 0.008 },
-      { "feature": "glazing_u_val", "importance": 0.004 },
-      { "feature": "orientation_azimuth", "importance": 0.004 }
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 1.9282
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.3766
+      },
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.005
+      }
     ],
     "embodied_carbon": [
-      { "feature": "room_depth", "importance": 0.365 },
-      { "feature": "room_width", "importance": 0.312 },
-      { "feature": "wwr", "importance": 0.184 },
-      { "feature": "overhang_depth", "importance": 0.068 },
-      { "feature": "aspect_ratio", "importance": 0.042 },
-      { "feature": "louver_angle", "importance": 0.018 },
-      { "feature": "glazing_u_val", "importance": 0.006 },
-      { "feature": "orientation_azimuth", "importance": 0.005 }
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 0.9883
+      },
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.5957
+      },
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 0.369
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.3663
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.005
+      }
+    ],
+    "biophilic_view": [
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 1.0623
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.723
+      },
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 0.1599
+      },
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 0.0489
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.005
+      }
+    ],
+    "microclimate_cooling": [
+      {
+        "Feature": "Tree Canopy Density",
+        "Key": "TreeDensity",
+        "Score": 1.2498
+      },
+      {
+        "Feature": "Water Body Proximity",
+        "Key": "HasWater",
+        "Score": 0.7727
+      },
+      {
+        "Feature": "Terrain Slope Elevation",
+        "Key": "Slope",
+        "Score": 0.0231
+      },
+      {
+        "Feature": "Room Depth (Span)",
+        "Key": "RoomDepth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Room Width (Span)",
+        "Key": "RoomWidth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Window-to-Wall Ratio (WWR)",
+        "Key": "Wwr",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Louver Angle",
+        "Key": "LouverAngle",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Overhang Depth",
+        "Key": "OverhangDepth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Orientation Azimuth",
+        "Key": "OrientationAzimuth",
+        "Score": 0.005
+      },
+      {
+        "Feature": "Glazing U-Value",
+        "Key": "GlazingUVal",
+        "Score": 0.005
+      }
     ]
-  }
+  },
+  "evaluations": [
+    {
+      "TargetKey": "sda_percent",
+      "TargetName": "Spatial Daylight Autonomy (sDA 300/50%)",
+      "Unit": "%",
+      "R2": 0.9407593153217843,
+      "Rmse": 2.9614592742573453,
+      "Mae": 1.9132816813013576,
+      "FeaturesRanked": [
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 1.3581
+        },
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 0.7224
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.1669
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.0241
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.0236
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.005
+        }
+      ]
+    },
+    {
+      "TargetKey": "cooling_load",
+      "TargetName": "Annual Cooling Energy",
+      "Unit": "kWh/m\u00B2/yr",
+      "R2": 0.8405416745696445,
+      "Rmse": 8.21046505147482,
+      "Mae": 6.241344623737507,
+      "FeaturesRanked": [
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.4523
+        },
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 0.4128
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.3355
+        },
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 0.2743
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.2003
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.1441
+        },
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 0.034
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.0241
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.005
+        }
+      ]
+    },
+    {
+      "TargetKey": "peak_stress",
+      "TargetName": "Peak Von Mises Stress",
+      "Unit": "MPa",
+      "R2": 0.9981619731660808,
+      "Rmse": 1.280958850713228,
+      "Mae": 0.9829253978557415,
+      "FeaturesRanked": [
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 1.9282
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.3766
+        },
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.005
+        }
+      ]
+    },
+    {
+      "TargetKey": "embodied_carbon",
+      "TargetName": "Embodied Carbon Footprint",
+      "Unit": "kgCO\u2082e/m\u00B2",
+      "R2": 0.938603240126498,
+      "Rmse": 2.8948167073041673,
+      "Mae": 1.5512913884343327,
+      "FeaturesRanked": [
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 0.9883
+        },
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.5957
+        },
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 0.369
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.3663
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.005
+        }
+      ]
+    },
+    {
+      "TargetKey": "biophilic_view",
+      "TargetName": "Biophilic \u0026 Green View Factor",
+      "Unit": "%",
+      "R2": 0.9869175958710718,
+      "Rmse": 2.330460574436559,
+      "Mae": 1.7609219701440484,
+      "FeaturesRanked": [
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 1.0623
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.723
+        },
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 0.1599
+        },
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 0.0489
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.005
+        }
+      ]
+    },
+    {
+      "TargetKey": "microclimate_cooling",
+      "TargetName": "Microclimate Cooling Drop (\u0394T)",
+      "Unit": "\u00B0C",
+      "R2": 0.9979062943539003,
+      "Rmse": 0.056860194420461814,
+      "Mae": 0.0470974579587713,
+      "FeaturesRanked": [
+        {
+          "Feature": "Tree Canopy Density",
+          "Key": "TreeDensity",
+          "Score": 1.2498
+        },
+        {
+          "Feature": "Water Body Proximity",
+          "Key": "HasWater",
+          "Score": 0.7727
+        },
+        {
+          "Feature": "Terrain Slope Elevation",
+          "Key": "Slope",
+          "Score": 0.0231
+        },
+        {
+          "Feature": "Room Depth (Span)",
+          "Key": "RoomDepth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Room Width (Span)",
+          "Key": "RoomWidth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Window-to-Wall Ratio (WWR)",
+          "Key": "Wwr",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Louver Angle",
+          "Key": "LouverAngle",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Overhang Depth",
+          "Key": "OverhangDepth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Orientation Azimuth",
+          "Key": "OrientationAzimuth",
+          "Score": 0.005
+        },
+        {
+          "Feature": "Glazing U-Value",
+          "Key": "GlazingUVal",
+          "Score": 0.005
+        }
+      ]
+    }
+  ]
 }
