@@ -1,4 +1,4 @@
-namespace Archregression
+﻿namespace Archregression
 
 open System
 open Microsoft.JSInterop
@@ -63,3 +63,15 @@ module Interop =
         member this.ExportGLB() : unit =
             if not (isNull js) then
                 js.InvokeVoidAsync("archInterop.exportGLB") |> ignore
+
+        member this.InitMap() : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.initMap") |> ignore
+
+        member this.SelectMapPreset(presetKey: string) : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.selectMapPreset", presetKey) |> ignore
+
+        member this.ApplyMapSite() : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.applyMapSite") |> ignore

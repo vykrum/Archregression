@@ -1,15 +1,17 @@
-/**
+﻿/**
  * wwwroot/js/viewportInterop.js
  * =============================
  * JavaScript Interop Bridge called directly by F# Bolero WebAssembly.
- * Connects F# Domain Models to Three.js WebGL rendering, Plotly regression analytics, and GIS.
+ * Connects F# Domain Models to Three.js WebGL rendering, Plotly regression analytics, and Leaflet GIS.
  */
 
 import { SpatialViewport } from './viewport.js';
 import { RegressionAnalytics } from './analytics.js';
+import { GlobalMapPicker } from './mapPicker.js';
 
 let viewportInstance = null;
 let analyticsInstance = null;
+let mapPickerInstance = null;
 
 const targetMap = {
   'sda': 'sda_percent',
@@ -48,9 +50,41 @@ export function initViewport() {
   }
 }
 
+export function initMapPicker() {
+  const container = document.getElementById('map-picker-container');
+  if (container) {
+    if (!mapPickerInstance) {
+      mapPickerInstance = new GlobalMapPicker('map-picker-container', (selectedSite) => {
+        if (viewportInstance) {
+          viewportInstance.applySiteData(selectedSite);
+        }
+      });
+      mapPickerInstance.initialize();
+    } else if (mapPickerInstance.map) {
+      setTimeout(() => mapPickerInstance.map.invalidateSize(), 200);
+    }
+  }
+}
+
 window.archInterop = {
   init: () => {
     initViewport();
+  },
+
+  initMap: () => {
+    initMapPicker();
+  },
+
+  selectMapPreset: (presetKey) => {
+    if (mapPickerInstance) {
+      mapPickerInstance.selectPreset(presetKey);
+    }
+  },
+
+  applyMapSite: () => {
+    if (mapPickerInstance) {
+      mapPickerInstance.applyCurrentSite();
+    }
   },
 
   updateArchitecture: (params) => {

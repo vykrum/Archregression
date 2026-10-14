@@ -1,4 +1,4 @@
-namespace Archregression
+﻿namespace Archregression
 
 open System
 open Elmish
@@ -156,6 +156,7 @@ type MainComponent() =
                 { model with Site = s; Prediction = pred; ShowMapModal = false }, Cmd.none
 
             | OpenMapModal ->
+                bridge.InitMap()
                 { model with ShowMapModal = true }, Cmd.none
 
             | CloseMapModal ->
@@ -237,7 +238,7 @@ type MainComponent() =
                                 attr.``class`` "drawer-header"
                                 div {
                                     attr.``class`` "drawer-title"
-                                    span { "📐" }
+                                    span { "ðŸ“" }
                                     " Envelope Parameters"
                                 }
                                 button {
@@ -267,16 +268,16 @@ type MainComponent() =
                             Components.renderSlider "Window-to-Wall Ratio" (sprintf "%d%%" (int (p.Wwr * 100.0))) 0.15 0.85 0.05 p.Wwr SetWwr dispatch
 
                             // 4. Louver Angle
-                            Components.renderSlider "Louver Angle (Tilt)" (sprintf "%.0f°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
+                            Components.renderSlider "Louver Angle (Tilt)" (sprintf "%.0fÂ°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
 
                             // 5. Overhang Depth
                             Components.renderSlider "Solar Overhang Depth" (sprintf "%.2f m" p.OverhangDepth) 0.2 2.5 0.1 p.OverhangDepth SetOverhangDepth dispatch
 
                             // 6. Solar Azimuth
-                            Components.renderSlider "Solar Azimuth (S=0°)" (sprintf "%.0f°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
+                            Components.renderSlider "Solar Azimuth (S=0Â°)" (sprintf "%.0fÂ°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
 
                             // 7. Glazing U-Value
-                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/m²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
+                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/mÂ²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
 
                             // Natural Site Context Header
                             div {
@@ -284,7 +285,7 @@ type MainComponent() =
                                 attr.style "margin-top: 1.25rem;"
                                 div {
                                     attr.``class`` "drawer-title"
-                                    span { "🌿" }
+                                    span { "ðŸŒ¿" }
                                     " Natural Site Context"
                                 }
                             }
@@ -296,19 +297,19 @@ type MainComponent() =
                                     attr.``class`` "site-preset-select"
                                     attr.value s.Preset.Key
                                     on.change (fun e -> dispatch (SelectSitePreset (SitePreset.FromKey (e.Value :?> string))))
-                                    option { attr.value "ocean"; "🌊 Ocean Shoreline & Coastal Bluff" }
-                                    option { attr.value "mountain"; "⛰️ Alpine Mountain Ridge & Peaks" }
-                                    option { attr.value "lake"; "🏞️ Inland Freshwater Lakefront" }
-                                    option { attr.value "forest"; "🌲 Forested Tree Canopy" }
-                                    option { attr.value "urban"; "🏢 Dense Urban Canyon" }
-                                    option { attr.value "studio"; "🏛️ Minimal Studio Plinth" }
-                                    option { attr.value "custom"; "🛠️ Custom Site (Interactive Sliders)" }
+                                    option { attr.value "ocean"; "ðŸŒŠ Ocean Shoreline & Coastal Bluff" }
+                                    option { attr.value "mountain"; "â›°ï¸ Alpine Mountain Ridge & Peaks" }
+                                    option { attr.value "lake"; "ðŸžï¸ Inland Freshwater Lakefront" }
+                                    option { attr.value "forest"; "ðŸŒ² Forested Tree Canopy" }
+                                    option { attr.value "urban"; "ðŸ¢ Dense Urban Canyon" }
+                                    option { attr.value "studio"; "ðŸ›ï¸ Minimal Studio Plinth" }
+                                    option { attr.value "custom"; "ðŸ› ï¸ Custom Site (Interactive Sliders)" }
                                 }
                             }
 
                             // Custom Site Builder Panel
                             cond (model.ShowCustomPanel || s.Preset = CustomSite) <| function
-                                | true -> Components.renderCustomSitePanel model dispatch
+                                | true -> Components.renderCustomSitePanel model.Site dispatch
                                 | false -> empty ()
 
                             // Tree Canopy Density
@@ -322,7 +323,7 @@ type MainComponent() =
                                     attr.``class`` (if model.PlantTreeMode then "btn btn-primary" else "btn")
                                     attr.style "width: 100%; justify-content: center;"
                                     on.click (fun _ -> dispatch TogglePlantTreeMode)
-                                    span { "🌲" }
+                                    span { "ðŸŒ²" }
                                     plantLabel
                                 }
                             }
@@ -335,8 +336,8 @@ type MainComponent() =
                             button { attr.``class`` (if model.ActiveCameraView = "top" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "top")); "Top" }
                             button { attr.``class`` (if model.ActiveCameraView = "south" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "south")); "South" }
                             button { attr.``class`` (if model.ActiveCameraView = "east" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "east")); "East" }
-                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "🕸️ Graph" }
-                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "📐 Wire" }
+                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "ðŸ•¸ï¸ Graph" }
+                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "ðŸ“ Wire" }
                         }
                     }
 
@@ -348,15 +349,15 @@ type MainComponent() =
                         div {
                             attr.``class`` "kpi-grid"
                             Components.renderKpiCard DaylightAutonomy "Daylight Autonomy (sDA)" (sprintf "%.1f" pred.SdaPercent) "%" "Target: > 55% (LEED v4)" model.ActiveTarget dispatch
-                            Components.renderKpiCard CoolingEnergy "Annual Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/m²" "Surrogate: ±4.8 RMSE" model.ActiveTarget dispatch
+                            Components.renderKpiCard CoolingEnergy "Annual Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/mÂ²" "Surrogate: Â±4.8 RMSE" model.ActiveTarget dispatch
                             Components.renderKpiCard StructuralStress "Peak Structural Stress" (sprintf "%.1f" pred.PeakStress) "MPa" "Capacity: 120 MPa" model.ActiveTarget dispatch
-                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCO₂e" "A1-A3 Cradle-to-Gate" model.ActiveTarget dispatch
+                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCOâ‚‚e" "A1-A3 Cradle-to-Gate" model.ActiveTarget dispatch
                         }
 
                         // Environmental Context Row
                         div {
                             attr.style "display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem; margin-bottom: 0.85rem;"
-                            Components.renderKpiCard MicroclimateCooling "Microclimate Cooling" (sprintf "-%.1f" pred.MicroclimateDeltaT) "°C" "Tree Shade & Breeze" model.ActiveTarget dispatch
+                            Components.renderKpiCard MicroclimateCooling "Microclimate Cooling" (sprintf "-%.1f" pred.MicroclimateDeltaT) "Â°C" "Tree Shade & Breeze" model.ActiveTarget dispatch
                             Components.renderKpiCard BiophilicGreenView "Biophilic Green View" (sprintf "%.0f" pred.BiophilicViewPct) "%" "Sightline Vegetation" model.ActiveTarget dispatch
                             Components.renderKpiCard TreeCarbonOffset "Tree Biomass Offset" (sprintf "%d" pred.TreeCarbonOffset) "kg/yr" "Annual Carbon Capture" model.ActiveTarget dispatch
                         }
@@ -370,7 +371,7 @@ type MainComponent() =
                                 button { attr.``class`` (if model.ActiveTarget = CoolingEnergy then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget CoolingEnergy)); "Cooling Energy" }
                                 button { attr.``class`` (if model.ActiveTarget = StructuralStress then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget StructuralStress)); "Structural Stress" }
                                 button { attr.``class`` (if model.ActiveTarget = BiophilicGreenView then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget BiophilicGreenView)); "Biophilic View" }
-                                button { attr.``class`` (if model.ActiveTarget = MicroclimateCooling then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget MicroclimateCooling)); "Microclimate (ΔT)" }
+                                button { attr.``class`` (if model.ActiveTarget = MicroclimateCooling then "target-tab active" else "target-tab"); on.click (fun _ -> dispatch (SelectTarget MicroclimateCooling)); "Microclimate (Î”T)" }
                             }
 
                             div {
@@ -387,8 +388,8 @@ type MainComponent() =
                                 attr.``class`` "chart-card"
                                 div {
                                     attr.``class`` "chart-card-header"
-                                    div { attr.``class`` "chart-title"; span { "🎯" }; " Parity Plot: Actual Simulation (y) vs. F# Surrogate (ŷ)" }
-                                    span { attr.``class`` "chart-badge"; "R² = 0.964 | 160 Samples" }
+                                    div { attr.``class`` "chart-title"; span { "ðŸŽ¯" }; " Parity Plot: Actual Simulation (y) vs. F# Surrogate (Å·)" }
+                                    span { attr.``class`` "chart-badge"; "RÂ² = 0.964 | 160 Samples" }
                                 }
                                 div { attr.id "chart-parity"; attr.``class`` "chart-viewport"; attr.style "min-height: 240px;" }
                             }
@@ -399,7 +400,7 @@ type MainComponent() =
                                     attr.``class`` "chart-card"
                                     div {
                                         attr.``class`` "chart-card-header"
-                                        div { attr.``class`` "chart-title"; span { "⚡" }; " SHAP Feature Importance" }
+                                        div { attr.``class`` "chart-title"; span { "âš¡" }; " SHAP Feature Importance" }
                                         span { attr.``class`` "chart-badge"; "Mean |SHAP|" }
                                     }
                                     div { attr.id "chart-shap"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
@@ -408,7 +409,7 @@ type MainComponent() =
                                     attr.``class`` "chart-card"
                                     div {
                                         attr.``class`` "chart-card-header"
-                                        div { attr.``class`` "chart-title"; span { "📉" }; " Residual Distribution" }
+                                        div { attr.``class`` "chart-title"; span { "ðŸ“‰" }; " Residual Distribution" }
                                         span { attr.``class`` "chart-badge"; "Centered at 0.0" }
                                     }
                                     div { attr.id "chart-residual"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
@@ -419,13 +420,17 @@ type MainComponent() =
                 }
 
                 // Bottom Status Bar
+                // Map Modal
+                Components.renderMapModal model dispatch
+
+                // Bottom Status Bar
                 footer {
                     attr.``class`` "app-status-bar"
                     div {
                         attr.``class`` "status-left"
-                        div { attr.``class`` "status-item"; span { attr.style "color: #38bdf8;"; "●" }; span { "Engine: "; strong { "F# Bolero WebAssembly (.NET 10)" } } }
-                        div { attr.``class`` "status-item"; span { attr.style "color: #10b981;"; "●" }; span { "Site Context: "; strong { s.Name } } }
-                        div { attr.``class`` "status-item"; span { attr.style "color: #a855f7;"; "●" }; span { "Mesh Format: "; strong { "glTF 2.0 (Khronos)" } } }
+                        div { attr.``class`` "status-item"; span { attr.style "color: #38bdf8;"; "â—" }; span { "Engine: "; strong { "F# Bolero WebAssembly (.NET 10)" } } }
+                        div { attr.``class`` "status-item"; span { attr.style "color: #10b981;"; "â—" }; span { "Site Context: "; strong { s.Name } } }
+                        div { attr.``class`` "status-item"; span { attr.style "color: #a855f7;"; "â—" }; span { "Mesh Format: "; strong { "glTF 2.0 (Khronos)" } } }
                     }
                     div {
                         attr.``class`` "status-right"
@@ -435,3 +440,5 @@ type MainComponent() =
             }
 
         Program.mkProgram init update view
+
+
