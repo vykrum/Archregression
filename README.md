@@ -65,10 +65,6 @@ Archregression/
 │   ├── generate_glb.py             # Mesh/lattice export via trimesh
 │   ├── train_surrogate.py          # Regression training and ONNX export
 │   └── requirements.txt
-├── huggingface_dataset/            # Hugging Face Hub dataset package
-│   ├── README.md                   # Dataset Card with YAML metadata
-│   ├── data/                       # Train & Test JSON/Parquet splits
-│   └── upload_dataset.py           # Script to push to Hugging Face Hub
 ├── .github/workflows/
 │   └── deploy.yml                  # GitHub Actions CI/CD for GitHub Pages
 ├── index.html                      # Main browser studio interface
@@ -125,16 +121,13 @@ git push -u origin main
 
 ---
 
-### 4. Uploading the Dataset to Hugging Face (`vykrum/arch-regression-dataset`)
+### 4. Accessing the Benchmark Dataset
 
-1. Install the Hugging Face CLI and log in with your access token:
-```bash
-pip install huggingface_hub
-huggingface-cli login
+The regression matrix of geometric features ($X$) and simulation targets ($y$) is available locally at [`public/data/benchmark_dataset.json`](file:///C:/Users/vykru/.gemini/antigravity-ide/scratch/Archregression/public/data/benchmark_dataset.json) and on Hugging Face:
+
+```python
+from datasets import load_dataset
+
+# Load directly from Hugging Face Hub
+dataset = load_dataset("vykrum/arch-regression-dataset")
 ```
-2. Run the upload script inside `huggingface_dataset`:
-```bash
-cd C:\Users\vykru\.gemini\antigravity-ide\scratch\Archregression\huggingface_dataset
-python upload_dataset.py
-```
-Your dataset and interactive Dataset Card will be live at `https://huggingface.co/datasets/vykrum/arch-regression-dataset`.
