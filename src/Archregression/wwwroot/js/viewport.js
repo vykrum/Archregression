@@ -1,4 +1,4 @@
-﻿/**
+/**
  * wwwroot/js/viewport.js
  * ======================
  * Three.js 3D Spatial Viewer with Dynamic Topography & Variable Site Context:
@@ -40,6 +40,16 @@ export class SpatialViewport {
     this.foundationPlinth = null;
     this.treesGroup = null;
     this.urbanGroup = null;
+    this.roadGroup = null;
+    this.roadData = {
+      name: 'Pine Street',
+      distance: 17.6,
+      type: 'local',
+      lat: 37.8590,
+      lng: -122.4853,
+      coords: [[-122.4853, 37.8590], [-122.4851, 37.8589], [-122.4849, 37.8588]],
+      ingressCoord: [-122.485133, 37.858913]
+    };
     this.customTrees = [];
 
     // State
@@ -139,6 +149,10 @@ export class SpatialViewport {
 
     this.urbanGroup = new THREE.Group();
     this.environmentGroup.add(this.urbanGroup);
+
+    this.roadGroup = new THREE.Group();
+    this.roadGroup.name = 'roadNetworkGroup';
+    this.environmentGroup.add(this.roadGroup);
 
     // 8. Architectural Geometry Container
     this.buildingGroup = new THREE.Group();
@@ -249,6 +263,18 @@ export class SpatialViewport {
     if (site.biome !== undefined) this.envParams.vegetation_biome = site.biome;
     if (site.urbanContext !== undefined) this.envParams.urban_shadows = site.urbanContext;
 
+    if (site.roadName !== undefined || site.roadDistance !== undefined) {
+      this.roadData = {
+        name: site.roadName || 'Pine Street',
+        distance: typeof site.roadDistance === 'number' ? site.roadDistance : (this.roadData ? this.roadData.distance : 20.0),
+        type: site.roadType || (this.roadData ? this.roadData.type : 'local'),
+        lat: site.lat !== undefined ? site.lat : (this.roadData ? this.roadData.lat : 37.8590),
+        lng: site.lng !== undefined ? site.lng : (this.roadData ? this.roadData.lng : -122.4853),
+        coords: site.roadCoords || (this.roadData ? this.roadData.coords : []),
+        ingressCoord: site.ingressCoord || (this.roadData ? this.roadData.ingressCoord : null)
+      };
+    }
+
     this.buildEnvironment();
     this.rebuildArchitecture();
   }
@@ -302,6 +328,12 @@ export class SpatialViewport {
     while (this.urbanGroup.children.length > 0) {
       const u = this.urbanGroup.children.pop();
       if (u.geometry) u.geometry.dispose();
+    }
+    if (this.roadGroup) {
+      while (this.roadGroup.children.length > 0) {
+        const r = this.roadGroup.children.pop();
+        if (r.geometry) r.geometry.dispose();
+      }
     }
 
     const preset = this.sitePreset;
@@ -508,6 +540,394 @@ export class SpatialViewport {
     if (preset === 'urban' || this.envParams.urban_shadows) {
       this.spawnUrbanBuildings();
     }
+
+    // 7. Real Road Network & Site Ingress Driveway
+    this.buildRoadNetwork();
+  }
+
+  /**
+   * Generates a 3D road ribbon mesh that conforms precisely to the bilinear
+   * satellite DEM heightfield across the parcel, complete with concrete curbs,
+   * dashed centerline stripes, and a connecting site ingress driveway.
+   */
+  buildRoadNetwork() {
+    if (!this.roadGroup) {
+      this.roadGroup = new THREE.Group();
+      this.roadGroup.name = 'roadNetworkGroup';
+      this.environmentGroup.add(this.roadGroup);
+    } else {
+      while (this.roadGroup.children.length > 0) {
+        const obj = this.roadGroup.children.pop();
+        if (obj.geometry) obj.geometry.dispose();
+        if (obj.material) {
+          if (Array.isArray(obj.material)) obj.material.forEach(m => m.dispose());
+          else obj.material.dispose();
+        }
+      }
+    }
+
+    if (this.sitePreset === 'studio') return;
+
+    const road = this.roadData;
+    if (!road) return;
+
+    const lat0 = road.lat || 37.8590;
+    const lng0 = road.lng || -122.4853;
+    const distM = typeof road.distance === 'number' ? road.distance : 22.0;
+    const roadType = road.type || 'local';
+    const roadName = road.name || 'Pine Street';
+
+    // If site is far off-grid (>550m), show natural foot trail and off-grid directional sign
+    if (distM > 550) {
+      this.buildOffGridTrail(distM, roadName);
+      return;
+    }
+
+    // Convert coordinates to local CAD meters
+    const cosLat = Math.max(0.15, Math.cos(lat0 * Math.PI / 180.0));
+    let pts = [];
+    if (road.coords && road.coords.length >= 2) {
+      pts = road.coords.map(c => {
+        const x = (c[0] - lng0) * 111320.0 * cosLat;
+        const z = -(c[1] - lat0) * 110540.0;
+        return new THREE.Vector2(x, z);
+      });
+    }
+
+    // Fallback: If no multi-point coords, generate road line perpendicular to ingress point
+    if (pts.length < 2) {
+      let rx = distM;
+      let rz = 0;
+      if (road.ingressCoord) {
+        rx = (road.ingressCoord[0] - lng0) * 111320.0 * cosLat;
+        rz = -(road.ingressCoord[1] - lat0) * 110540.0;
+      }
+      const len = Math.max(1.0, Math.sqrt(rx * rx + rz * rz));
+      const tx = -rz / len;
+      const tz = rx / len;
+      pts = [
+        new THREE.Vector2(rx - tx * 60, rz - tz * 60),
+        new THREE.Vector2(rx, rz),
+        new THREE.Vector2(rx + tx * 60, rz + tz * 60)
+      ];
+    }
+
+    // Remove near duplicates
+    const cleanPts = [];
+    for (let i = 0; i < pts.length; i++) {
+      if (i === 0 || pts[i].distanceTo(cleanPts[cleanPts.length - 1]) > 0.6) {
+        cleanPts.push(pts[i]);
+      }
+    }
+    if (cleanPts.length < 2) return;
+
+    // Find closest point to site pad (0, 0)
+    let closestPt = cleanPts[0];
+    let minD = 99999;
+    for (const p of cleanPts) {
+      const d = p.length();
+      if (d < minD) {
+        minD = d;
+        closestPt = p;
+      }
+    }
+
+    // Compute primary road direction
+    const pStart = cleanPts[0];
+    const pEnd = cleanPts[cleanPts.length - 1];
+    let dir = new THREE.Vector2().subVectors(pEnd, pStart).normalize();
+    if (dir.length() < 0.001) dir = new THREE.Vector2(0, 1);
+
+    // Extrapolate endpoints across the 150m terrain parcel (-70m to +70m)
+    const extendedPts = [
+      new THREE.Vector2().copy(closestPt).addScaledVector(dir, -72),
+      ...cleanPts,
+      new THREE.Vector2().copy(closestPt).addScaledVector(dir, 72)
+    ];
+
+    // Subdivide road points into small ~2m increments for smooth terrain conforming
+    const sampledCenterline = [];
+    for (let i = 0; i < extendedPts.length - 1; i++) {
+      const p1 = extendedPts[i];
+      const p2 = extendedPts[i + 1];
+      const segLen = p1.distanceTo(p2);
+      const steps = Math.max(1, Math.round(segLen / 2.0));
+      for (let s = 0; s < steps; s++) {
+        const t = s / steps;
+        const x = THREE.MathUtils.lerp(p1.x, p2.x, t);
+        const z = THREE.MathUtils.lerp(p1.y, p2.y, t);
+        if (Math.abs(x) <= 73 && Math.abs(z) <= 73) {
+          sampledCenterline.push(new THREE.Vector2(x, z));
+        }
+      }
+    }
+
+    if (sampledCenterline.length < 2) return;
+
+    // Road dimensions
+    const roadWidth = roadType === 'arterial' ? 9.2 : (roadType === 'collector' ? 7.2 : 5.4);
+    const halfW = roadWidth / 2.0;
+    const curbW = 0.35;
+    const numPts = sampledCenterline.length;
+
+    const roadVerts = [];
+    const roadNorms = [];
+    const roadUvs = [];
+    const roadIndices = [];
+
+    const curbVerts = [];
+    const curbNorms = [];
+    const curbIndices = [];
+
+    const stripeVerts = [];
+    const stripeIndices = [];
+
+    for (let i = 0; i < numPts; i++) {
+      const curr = sampledCenterline[i];
+      let tan;
+      if (i === 0) {
+        tan = new THREE.Vector2().subVectors(sampledCenterline[1], curr).normalize();
+      } else if (i === numPts - 1) {
+        tan = new THREE.Vector2().subVectors(curr, sampledCenterline[numPts - 2]).normalize();
+      } else {
+        tan = new THREE.Vector2().subVectors(sampledCenterline[i + 1], sampledCenterline[i - 1]).normalize();
+      }
+      if (tan.length() < 0.001) tan = new THREE.Vector2(0, 1);
+      const norm = new THREE.Vector2(-tan.y, tan.x).normalize();
+
+      const cx = curr.x;
+      const cz = curr.y;
+      const cy = this.getTerrainHeightAt(cx, cz) + 0.14;
+
+      const lx = cx - norm.x * halfW;
+      const lz = cz - norm.y * halfW;
+      const ly = this.getTerrainHeightAt(lx, lz) + 0.11;
+
+      const rx = cx + norm.x * halfW;
+      const rz = cz + norm.y * halfW;
+      const ry = this.getTerrainHeightAt(rx, rz) + 0.11;
+
+      const lCurbX = cx - norm.x * (halfW + curbW);
+      const lCurbZ = cz - norm.y * (halfW + curbW);
+      const lCurbY = this.getTerrainHeightAt(lCurbX, lCurbZ) + 0.18;
+
+      const rCurbX = cx + norm.x * (halfW + curbW);
+      const rCurbZ = cz + norm.y * (halfW + curbW);
+      const rCurbY = this.getTerrainHeightAt(rCurbX, rCurbZ) + 0.18;
+
+      // Road Surface (lx, ly, lz) -> (cx, cy, cz) -> (rx, ry, rz)
+      const rBase = i * 3;
+      roadVerts.push(lx, ly, lz,   cx, cy, cz,   rx, ry, rz);
+      roadNorms.push(0, 1, 0,      0, 1, 0,      0, 1, 0);
+      roadUvs.push(0, i / numPts,  0.5, i / numPts,  1, i / numPts);
+
+      if (i < numPts - 1) {
+        const nextBase = (i + 1) * 3;
+        roadIndices.push(rBase, nextBase, rBase + 1);
+        roadIndices.push(rBase + 1, nextBase, nextBase + 1);
+        roadIndices.push(rBase + 1, nextBase + 1, rBase + 2);
+        roadIndices.push(rBase + 2, nextBase + 1, nextBase + 2);
+      }
+
+      // Concrete Curb Ribbons
+      const cBase = i * 4;
+      curbVerts.push(lCurbX, lCurbY, lCurbZ,  lx, ly, lz,  rx, ry, rz,  rCurbX, rCurbY, rCurbZ);
+      curbNorms.push(0, 1, 0,  0, 1, 0,  0, 1, 0,  0, 1, 0);
+      if (i < numPts - 1) {
+        const nextCBase = (i + 1) * 4;
+        curbIndices.push(cBase, nextCBase, cBase + 1);
+        curbIndices.push(cBase + 1, nextCBase, nextCBase + 1);
+        curbIndices.push(cBase + 2, nextCBase + 2, cBase + 3);
+        curbIndices.push(cBase + 3, nextCBase + 2, nextCBase + 3);
+      }
+
+      // Centerline stripe (dashed every 3 increments)
+      if (i % 3 !== 2) {
+        const sW = 0.11;
+        const slx = cx - norm.x * sW;
+        const slz = cz - norm.y * sW;
+        const srx = cx + norm.x * sW;
+        const srz = cz + norm.y * sW;
+        const sIdx = stripeVerts.length / 3;
+        stripeVerts.push(slx, cy + 0.02, slz,   srx, cy + 0.02, srz);
+        if (i < numPts - 1 && (i + 1) % 3 !== 2) {
+          stripeIndices.push(sIdx, sIdx + 2, sIdx + 1);
+          stripeIndices.push(sIdx + 1, sIdx + 2, sIdx + 3);
+        }
+      }
+    }
+
+    // Road Mesh
+    const roadGeo = new THREE.BufferGeometry();
+    roadGeo.setAttribute('position', new THREE.Float32BufferAttribute(roadVerts, 3));
+    roadGeo.setAttribute('normal', new THREE.Float32BufferAttribute(roadNorms, 3));
+    roadGeo.setAttribute('uv', new THREE.Float32BufferAttribute(roadUvs, 2));
+    roadGeo.setIndex(roadIndices);
+
+    const roadMat = new THREE.MeshStandardMaterial({
+      color: 0x1e293b,
+      roughness: 0.85,
+      metalness: 0.12,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    });
+    const roadMesh = new THREE.Mesh(roadGeo, roadMat);
+    roadMesh.receiveShadow = true;
+    this.roadGroup.add(roadMesh);
+
+    // Curbs Mesh
+    const curbGeo = new THREE.BufferGeometry();
+    curbGeo.setAttribute('position', new THREE.Float32BufferAttribute(curbVerts, 3));
+    curbGeo.setAttribute('normal', new THREE.Float32BufferAttribute(curbNorms, 3));
+    curbGeo.setIndex(curbIndices);
+    const curbMat = new THREE.MeshStandardMaterial({
+      color: 0x64748b,
+      roughness: 0.9,
+      metalness: 0.05
+    });
+    const curbMesh = new THREE.Mesh(curbGeo, curbMat);
+    curbMesh.receiveShadow = true;
+    this.roadGroup.add(curbMesh);
+
+    // Centerline Stripe Mesh
+    if (stripeVerts.length > 0 && stripeIndices.length > 0) {
+      const stripeGeo = new THREE.BufferGeometry();
+      stripeGeo.setAttribute('position', new THREE.Float32BufferAttribute(stripeVerts, 3));
+      stripeGeo.setIndex(stripeIndices);
+      stripeGeo.computeVertexNormals();
+      const stripeMat = new THREE.MeshBasicMaterial({
+        color: roadType === 'arterial' ? 0xfbbf24 : 0xf8fafc,
+        side: THREE.DoubleSide
+      });
+      const stripeMesh = new THREE.Mesh(stripeGeo, stripeMat);
+      this.roadGroup.add(stripeMesh);
+    }
+
+    // Site Ingress Driveway connecting building pad plinth to road
+    this.buildSiteIngressDriveway(closestPt, roadName, distM);
+  }
+
+  buildSiteIngressDriveway(roadPt, roadName, distM) {
+    const dir = new THREE.Vector2(roadPt.x, roadPt.y).normalize();
+    const padEdgeDist = Math.max(6.0, (this.params.room_width || 12) / 2.0 + 1.5);
+    const padPt = new THREE.Vector2().copy(dir).multiplyScalar(padEdgeDist);
+
+    const drivewayLen = padPt.distanceTo(roadPt);
+    if (drivewayLen < 1.0) return;
+
+    const steps = Math.max(2, Math.round(drivewayLen / 1.6));
+    const dWidth = 4.2;
+    const dHalf = dWidth / 2.0;
+    const norm = new THREE.Vector2(-dir.y, dir.x).normalize();
+
+    const dVerts = [];
+    const dIndices = [];
+
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const cx = THREE.MathUtils.lerp(padPt.x, roadPt.x, t);
+      const cz = THREE.MathUtils.lerp(padPt.y, roadPt.y, t);
+      const cy = this.getTerrainHeightAt(cx, cz) + 0.12;
+
+      const lx = cx - norm.x * dHalf;
+      const lz = cz - norm.y * dHalf;
+      const rx = cx + norm.x * dHalf;
+      const rz = cz + norm.y * dHalf;
+
+      dVerts.push(lx, cy, lz,   rx, cy, rz);
+
+      if (s < steps) {
+        const base = s * 2;
+        dIndices.push(base, base + 2, base + 1);
+        dIndices.push(base + 1, base + 2, base + 3);
+      }
+    }
+
+    const driveGeo = new THREE.BufferGeometry();
+    driveGeo.setAttribute('position', new THREE.Float32BufferAttribute(dVerts, 3));
+    driveGeo.setIndex(dIndices);
+    driveGeo.computeVertexNormals();
+
+    const driveMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.88,
+      metalness: 0.10,
+      polygonOffset: true,
+      polygonOffsetFactor: -1,
+      polygonOffsetUnits: -1
+    });
+    const driveMesh = new THREE.Mesh(driveGeo, driveMat);
+    driveMesh.receiveShadow = true;
+    this.roadGroup.add(driveMesh);
+
+    // 3D CAD Ingress Marker Post & Ring at Curb Cut
+    const ingressY = this.getTerrainHeightAt(roadPt.x, roadPt.y) + 0.15;
+
+    // Glowing base ring
+    const ringGeo = new THREE.RingGeometry(0.8, 1.25, 24);
+    ringGeo.rotateX(-Math.PI / 2);
+    const ringMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8, side: THREE.DoubleSide });
+    const ringMesh = new THREE.Mesh(ringGeo, ringMat);
+    ringMesh.position.set(roadPt.x, ingressY + 0.05, roadPt.y);
+    this.roadGroup.add(ringMesh);
+
+    // Sleek CAD Ingress Marker Post
+    const postGeo = new THREE.CylinderGeometry(0.1, 0.1, 2.2, 12);
+    const postMat = new THREE.MeshStandardMaterial({ color: 0x0284c7, metalness: 0.8, roughness: 0.2 });
+    const postMesh = new THREE.Mesh(postGeo, postMat);
+    postMesh.position.set(roadPt.x, ingressY + 1.1, roadPt.y);
+    this.roadGroup.add(postMesh);
+
+    // Ingress Beacon Orb
+    const beaconGeo = new THREE.SphereGeometry(0.25, 12, 8);
+    const beaconMat = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+    const beaconMesh = new THREE.Mesh(beaconGeo, beaconMat);
+    beaconMesh.position.set(roadPt.x, ingressY + 2.3, roadPt.y);
+    this.roadGroup.add(beaconMesh);
+  }
+
+  buildOffGridTrail(distM, roadName) {
+    const trailDir = new THREE.Vector2(0.8, 0.6).normalize();
+    const trailLen = 70.0;
+    const steps = 35;
+    const tWidth = 1.5;
+    const norm = new THREE.Vector2(-trailDir.y, trailDir.x);
+
+    const tVerts = [];
+    const tIndices = [];
+
+    for (let s = 0; s <= steps; s++) {
+      const t = s / steps;
+      const cx = trailDir.x * t * trailLen;
+      const cz = trailDir.y * t * trailLen;
+      const cy = this.getTerrainHeightAt(cx, cz) + 0.06;
+
+      const lx = cx - norm.x * (tWidth / 2);
+      const lz = cz - norm.y * (tWidth / 2);
+      const rx = cx + norm.x * (tWidth / 2);
+      const rz = cz + norm.y * (tWidth / 2);
+
+      tVerts.push(lx, cy, lz,  rx, cy, rz);
+      if (s < steps) {
+        const base = s * 2;
+        tIndices.push(base, base + 2, base + 1);
+        tIndices.push(base + 1, base + 2, base + 3);
+      }
+    }
+
+    const trailGeo = new THREE.BufferGeometry();
+    trailGeo.setAttribute('position', new THREE.Float32BufferAttribute(tVerts, 3));
+    trailGeo.setIndex(tIndices);
+    trailGeo.computeVertexNormals();
+
+    const trailMat = new THREE.MeshStandardMaterial({
+      color: 0x78593a,
+      roughness: 0.95,
+      metalness: 0.02
+    });
+    const trailMesh = new THREE.Mesh(trailGeo, trailMat);
+    this.roadGroup.add(trailMesh);
   }
 
   buildStudioPlinth() {

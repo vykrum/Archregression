@@ -163,6 +163,18 @@ module Components =
             }
 
             div {
+                attr.style "background: #f8fafc; border: 1px solid #cbd5e1; border-radius: 4px; padding: 7px 10px; margin-bottom: 0.75rem; font-size: 11px; display: flex; justify-content: space-between; align-items: center;"
+                div {
+                    attr.style "color: #1e293b; font-weight: 600;"
+                    sprintf "Nearest Road: %s" u.RoadName
+                }
+                span {
+                    attr.style "background: #e2e8f0; color: #0284c7; padding: 2px 7px; border-radius: 4px; font-weight: 700; font-size: 10px; letter-spacing: 0.3px;"
+                    sprintf "%.1f m (%s)" u.RoadDistanceM (u.RoadType.Key.ToUpperInvariant())
+                }
+            }
+
+            div {
                 attr.``class`` "param-group"
                 span { attr.``class`` "param-name"; "Road Network Hierarchy" }
                 select {

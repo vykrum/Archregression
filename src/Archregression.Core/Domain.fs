@@ -296,49 +296,56 @@ type UrbanZoningParams =
 
 /// Complete urban mobility, environmental acoustic, and zoning context
 type UrbanContextParams =
-    { RoadType: RoadClassification
+    { RoadName: string                // Nearest detected street or access road name
+      RoadType: RoadClassification
       RoadDistanceM: float            // Distance from primary road centerline (m)
       TrafficVolumeAadt: int          // Annual Average Daily Traffic (vehicles/day)
       AmbientNoiseLdenDb: float       // Decibel field level L_den (dB)
       TransitDistanceM: float         // Distance to nearest public transit hub (m)
       Zoning: UrbanZoningParams }
     static member DefaultSausalito =
-        { RoadType = CollectorRoad
+        { RoadName = "Pine Street"
+          RoadType = CollectorRoad
           RoadDistanceM = 18.0
           TrafficVolumeAadt = 8500
           AmbientNoiseLdenDb = 56.0
           TransitDistanceM = 350.0
           Zoning = { MaxFar = 1.8; MaxBuildingHeightM = 15.0; TargetOccupancyPerM2 = 0.035; LotAreaM2 = 1400.0 } }
     static member DefaultChamonix =
-        { RoadType = LocalStreet
+        { RoadName = "Allée du Majestic"
+          RoadType = LocalStreet
           RoadDistanceM = 35.0
           TrafficVolumeAadt = 2200
           AmbientNoiseLdenDb = 44.0
           TransitDistanceM = 650.0
           Zoning = { MaxFar = 1.2; MaxBuildingHeightM = 14.0; TargetOccupancyPerM2 = 0.025; LotAreaM2 = 1800.0 } }
     static member DefaultZurich =
-        { RoadType = CollectorRoad
+        { RoadName = "Bahnhofquai"
+          RoadType = CollectorRoad
           RoadDistanceM = 22.0
           TrafficVolumeAadt = 11000
           AmbientNoiseLdenDb = 60.0
           TransitDistanceM = 180.0
           Zoning = { MaxFar = 2.8; MaxBuildingHeightM = 22.0; TargetOccupancyPerM2 = 0.05; LotAreaM2 = 1200.0 } }
     static member DefaultBlackForest =
-        { RoadType = LocalStreet
+        { RoadName = "Schwarzwaldhochstraße"
+          RoadType = LocalStreet
           RoadDistanceM = 60.0
           TrafficVolumeAadt = 1200
           AmbientNoiseLdenDb = 38.0
           TransitDistanceM = 1200.0
           Zoning = { MaxFar = 1.0; MaxBuildingHeightM = 12.0; TargetOccupancyPerM2 = 0.02; LotAreaM2 = 2500.0 } }
     static member DefaultAtacama =
-        { RoadType = LocalStreet
+        { RoadName = "Ruta 23-CH"
+          RoadType = LocalStreet
           RoadDistanceM = 80.0
           TrafficVolumeAadt = 400
           AmbientNoiseLdenDb = 35.0
           TransitDistanceM = 1800.0
           Zoning = { MaxFar = 0.8; MaxBuildingHeightM = 10.0; TargetOccupancyPerM2 = 0.015; LotAreaM2 = 3000.0 } }
     static member DefaultSingapore =
-        { RoadType = ArterialHighway
+        { RoadName = "Marina Boulevard"
+          RoadType = ArterialHighway
           RoadDistanceM = 12.0
           TrafficVolumeAadt = 28000
           AmbientNoiseLdenDb = 74.0

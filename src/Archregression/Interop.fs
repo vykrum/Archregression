@@ -45,6 +45,7 @@ module Interop =
                         "centerElevation", box t.CenterElevation
                         "elevationExaggeration", box t.ElevationExaggeration
                         "name", box site.Name
+                        "roadName", box u.RoadName
                         "roadType", box u.RoadType.Key
                         "roadDistance", box u.RoadDistanceM
                         "trafficVolume", box u.TrafficVolumeAadt
@@ -142,11 +143,27 @@ module Interop =
                           ElevationExaggeration = 1.0
                           UrbanShadows = false }
 
+                    let roadName = getPropString "roadName" "Detected Access Road"
+                    let roadDist = getPropDouble "roadDistance" 25.0
+                    let roadTypeStr = getPropString "roadType" "local"
+                    let trafficVol = int (getPropDouble "trafficVolume" 2100.0)
+                    let noiseDb = getPropDouble "ambientNoise" 48.0
+                    let transitDist = getPropDouble "transitDistance" 350.0
+
+                    let roadType = RoadClassification.FromKey roadTypeStr
+
                     let urban =
-                        if elev > 650.0 then UrbanContextParams.DefaultChamonix
-                        elif topo.WaterType = OceanShoreline then UrbanContextParams.DefaultSausalito
-                        elif topo.WaterType = FreshwaterLake then UrbanContextParams.DefaultZurich
-                        else UrbanContextParams.DefaultBlackForest
+                        { RoadName = roadName
+                          RoadType = roadType
+                          RoadDistanceM = roadDist
+                          TrafficVolumeAadt = trafficVol
+                          AmbientNoiseLdenDb = noiseDb
+                          TransitDistanceM = transitDist
+                          Zoning =
+                              if elev > 650.0 then UrbanZoningParams.Default
+                              elif topo.WaterType = OceanShoreline then { UrbanZoningParams.Default with MaxFar = 1.8; LotAreaM2 = 1400.0 }
+                              elif topo.WaterType = FreshwaterLake then { UrbanZoningParams.Default with MaxFar = 2.8; LotAreaM2 = 1200.0 }
+                              else UrbanZoningParams.Default }
 
                     let site =
                         { Name = name
