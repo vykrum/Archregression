@@ -1,4 +1,4 @@
-# Archregression 🏛️⚡ (100% F# & ML.NET Edition)
+# Archregression 
 
 > **Open-Source Architectural Surrogate Regression, 3D Topography & Generative Lab**  
 > Written **100% in F# (`.fs`)** powered by **ML.NET (`Microsoft.ML`)**, **Bolero WebAssembly (.NET 10)**, and **SharpGLTF (Khronos Group)**.  
@@ -6,7 +6,7 @@
 
 ---
 
-## 🌟 Key Architecture & Pillars
+## Key Architecture & Pillars
 
 ```
 ┌────────────────────────────────────────────────────────┐
@@ -44,7 +44,7 @@
 
 ---
 
-## 📁 Repository Layout
+## Repository Layout
 
 ```text
 Archregression/
@@ -54,7 +54,7 @@ Archregression/
 ├── .gitignore                         # Standard .NET / IDE gitignore
 ├── serve.ps1                          # PowerShell launcher script
 ├── src/
-│   ├── Archregression.Core/          # 🧠 Shared Pure F# Domain & Math Engine
+│   ├── Archregression.Core/          # Shared Pure F# Domain & Math Engine
 │   │   ├── Archregression.Core.fsproj
 │   │   ├── Domain.fs                  # F# Types: Architecture, Site, Topography, KPIs
 │   │   ├── Topography.fs              # Pure F# procedural 3D heightfield math
@@ -62,7 +62,7 @@ Archregression/
 │   │   ├── Generative.fs              # Multi-objective genetic optimizer (500 perms in <150ms)
 │   │   └── SiteAnalysis.fs            # Geographic slope, aspect & biome classification
 │   │
-│   ├── Archregression/               # 🌐 Bolero WebAssembly Client (Blazor WASM)
+│   ├── Archregression/               # Bolero WebAssembly Client (Blazor WASM)
 │   │   ├── Archregression.fsproj
 │   │   ├── Interop.fs                 # JSInterop bridge for Three.js & Plotly
 │   │   ├── Components.fs              # Bolero Elmish UI views (HUD, Sliders, KPI Cards)
@@ -78,7 +78,7 @@ Archregression/
 │   │       ├── data/                  # Benchmark datasets, GLB meshes & floorplans
 │   │       └── models/                # ML.NET models & surrogate weights
 │   │
-│   └── Archregression.Trainer/       # 🚀 ML.NET Surrogate Trainer & SharpGLTF Pipeline
+│   └── Archregression.Trainer/       # ML.NET Surrogate Trainer & SharpGLTF Pipeline
 │       ├── Archregression.Trainer.fsproj
 │       ├── Types.fs                   # Strongly typed ML.NET schemas
 │       ├── DatasetGenerator.fs        # Multi-physics parametric simulation sampler
@@ -90,7 +90,7 @@ Archregression/
 
 ---
 
-## 🚀 Building & Running
+## Building & Running
 
 ### 1. Build the Entire Solution (.NET 10 SDK)
 ```bash
@@ -114,7 +114,7 @@ dotnet run --project src/Archregression
 
 ---
 
-## 📄 License & Attribution
+## License & Attribution
 
 - Licensed under **Apache-2.0**.
 - Built with **F#**, **ML.NET**, **Bolero**, **Three.js**, and **SharpGLTF**.
