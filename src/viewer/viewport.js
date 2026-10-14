@@ -1,8 +1,14 @@
 /**
  * src/viewer/viewport.js
  * ======================
- * Three.js 3D Spatial Viewer for Architectural Parametric Exploration,
- * Live Per-Vertex Heatmap Color Mapping, and 3D Room Adjacency Graph Overlays.
+ * Three.js 3D Spatial Viewer with Variable Environmental Context:
+ * - 3D Mountains & Sloped Topography Mesh
+ * - Water Bodies (Lakes / Oceans) with Shimmering Surface
+ * - Natural Tree Canopies & Vegetation with Dynamic Shadows
+ * - Neighboring Urban Massings & Shading Obstacles
+ * - Interactive Click-to-Plant Trees Tool
+ * - Procedural Architectural Pavilion with Per-Vertex Surface Heatmap
+ * - 3D Spatial Room Adjacency Graph Overlays
  */
 
 import * as THREE from 'https://esm.sh/three@0.165.0';
@@ -17,17 +23,41 @@ export class SpatialViewport {
     this.renderer = null;
     this.controls = null;
     this.sunLight = null;
+    this.hemiLight = null;
     this.buildingGroup = null;
     this.heatmapMesh = null;
     this.spatialGraphGroup = null;
     this.sectionPlane = null;
     this.clippingEnabled = false;
 
-    // View State
-    this.activeMetric = 'sda_percent'; // 'sda_percent' | 'cooling_load' | 'peak_stress'
-    this.colormap = 'turbo'; // 'turbo' | 'viridis' | 'plasma' | 'coolwarm'
+    // Environmental & Natural Context Groups
+    this.environmentGroup = null;
+    this.terrainMesh = null;
+    this.waterMesh = null;
+    this.treesGroup = null;
+    this.urbanGroup = null;
+    this.customTrees = [];
+
+    // State
+    this.activeMetric = 'sda_percent';
+    this.colormap = 'turbo';
     this.showSpatialGraph = true;
     this.showWireframe = false;
+    this.plantTreeToolActive = false;
+    this.sitePreset = 'coastal'; // 'coastal' | 'mountain' | 'forest' | 'urban' | 'studio'
+
+    // Environmental Parameters
+    this.envParams = {
+      site_preset: 'coastal',
+      tree_density: 0.65,
+      water_proximity: 18.0, // meters to shoreline
+      terrain_slope: 12.0,   // degrees
+      mountain_height: 25.0, // max ridge altitude
+      urban_shadows: false,
+      has_water: true
+    };
+
+    // Building Parameters
     this.params = {
       room_depth: 14.0,
       room_width: 12.0,
@@ -38,6 +68,9 @@ export class SpatialViewport {
       glazing_u_val: 1.8
     };
 
+    this.raycaster = new THREE.Raycaster();
+    this.mouse = new THREE.Vector2();
+
     this.init();
   }
 
@@ -47,12 +80,12 @@ export class SpatialViewport {
 
     // 1. Scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0e1117);
-    this.scene.fog = new THREE.FogExp2(0x0e1117, 0.015);
+    this.scene.background = new THREE.Color(0x0a0e17);
+    this.scene.fog = new THREE.FogExp2(0x0a0e17, 0.008);
 
     // 2. Camera
-    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
-    this.camera.position.set(22, 18, 26);
+    this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1500);
+    this.camera.position.set(28, 22, 34);
 
     // 3. Renderer with antialiasing and local clipping
     this.renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, powerPreference: 'high-performance' });
@@ -66,18 +99,25 @@ export class SpatialViewport {
     // 4. Controls
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.enableDamping = true;
-    this.controls.dampingFactor = 0.06;
-    this.controls.maxPolarAngle = Math.PI / 2 + 0.02; // Prevent going deep below ground
+    this.controls.dampingFactor = 0.05;
+    this.controls.maxPolarAngle = Math.PI / 2 + 0.02;
     this.controls.target.set(0, 2.5, 0);
 
-    // 5. Section Clipping Plane (along Y-Z axis)
+    // 5. Section Clipping Plane
     this.sectionPlane = new THREE.Plane(new THREE.Vector3(0, 0, -1), 100);
 
     // 6. Lighting Rig
     this.setupLighting();
 
-    // 7. Ground Grid & Studio Plinth
-    this.setupEnvironment();
+    // 7. Environment & Natural Elements Group
+    this.environmentGroup = new THREE.Group();
+    this.scene.add(this.environmentGroup);
+
+    this.treesGroup = new THREE.Group();
+    this.environmentGroup.add(this.treesGroup);
+
+    this.urbanGroup = new THREE.Group();
+    this.environmentGroup.add(this.urbanGroup);
 
     // 8. Architectural Geometry Container
     this.buildingGroup = new THREE.Group();
@@ -87,12 +127,14 @@ export class SpatialViewport {
     this.spatialGraphGroup = new THREE.Group();
     this.scene.add(this.spatialGraphGroup);
 
-    // 10. Generate Initial Geometry
+    // 10. Generate Initial Environment and Geometry
+    this.buildEnvironment();
     this.rebuildArchitecture();
     this.buildSpatialGraph();
 
-    // 11. Handle Resize
+    // 11. Event Listeners
     window.addEventListener('resize', () => this.onWindowResize());
+    this.renderer.domElement.addEventListener('click', (e) => this.onCanvasClick(e));
 
     // 12. Animation Loop
     this.animate = this.animate.bind(this);
@@ -100,28 +142,25 @@ export class SpatialViewport {
   }
 
   setupLighting() {
-    // Hemispherical ambient sky / ground light
-    const hemiLight = new THREE.HemisphereLight(0xe8f0fe, 0x181a20, 0.7);
-    hemiLight.position.set(0, 50, 0);
-    this.scene.add(hemiLight);
+    this.hemiLight = new THREE.HemisphereLight(0xdce7f9, 0x1a2130, 0.75);
+    this.hemiLight.position.set(0, 80, 0);
+    this.scene.add(this.hemiLight);
 
-    // Directional Sun Light
-    this.sunLight = new THREE.DirectionalLight(0xfff5e6, 1.8);
+    this.sunLight = new THREE.DirectionalLight(0xfff5e4, 2.0);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048;
     this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 120;
-    this.sunLight.shadow.camera.left = -25;
-    this.sunLight.shadow.camera.right = 25;
-    this.sunLight.shadow.camera.top = 25;
-    this.sunLight.shadow.camera.bottom = -25;
-    this.sunLight.shadow.bias = -0.0005;
+    this.sunLight.shadow.camera.far = 250;
+    this.sunLight.shadow.camera.left = -50;
+    this.sunLight.shadow.camera.right = 50;
+    this.sunLight.shadow.camera.top = 50;
+    this.sunLight.shadow.camera.bottom = -50;
+    this.sunLight.shadow.bias = -0.0004;
     this.scene.add(this.sunLight);
 
-    // Subtle blue fill light
-    const fillLight = new THREE.DirectionalLight(0x738bd6, 0.5);
-    fillLight.position.set(-20, 15, -20);
+    const fillLight = new THREE.DirectionalLight(0x60a5fa, 0.45);
+    fillLight.position.set(-40, 25, -40);
     this.scene.add(fillLight);
 
     this.updateSunPosition();
@@ -130,7 +169,7 @@ export class SpatialViewport {
   updateSunPosition() {
     const azimuthRad = THREE.MathUtils.degToRad(this.params.orientation_azimuth + 180);
     const altitudeRad = THREE.MathUtils.degToRad(42);
-    const radius = 40;
+    const radius = 60;
 
     const x = radius * Math.sin(azimuthRad) * Math.cos(altitudeRad);
     const y = radius * Math.sin(altitudeRad);
@@ -139,30 +178,325 @@ export class SpatialViewport {
     this.sunLight.position.set(x, y, z);
   }
 
-  setupEnvironment() {
-    // Studio ground plinth
-    const plinthGeo = new THREE.CylinderGeometry(32, 34, 0.4, 64);
+  /**
+   * Builds the natural site context based on the active preset:
+   * - Alpine Mountain Ridge (Displaced terrain, snow peaks, rocky slope)
+   * - Lakefront / Coastal Shoreline (Water plane with reflections, sandy shore)
+   * - Forested Canopy (Dense tree belts, mossy grass, biophilic context)
+   * - Urban Canyon (Surrounding context towers)
+   * - Studio Plinth (Clean engineering floor)
+   */
+  buildEnvironment() {
+    // Clear previous environment meshes
+    if (this.terrainMesh) {
+      this.terrainMesh.geometry.dispose();
+      this.environmentGroup.remove(this.terrainMesh);
+      this.terrainMesh = null;
+    }
+    if (this.waterMesh) {
+      this.waterMesh.geometry.dispose();
+      this.environmentGroup.remove(this.waterMesh);
+      this.waterMesh = null;
+    }
+    while (this.treesGroup.children.length > 0) {
+      const t = this.treesGroup.children.pop();
+      if (t.geometry) t.geometry.dispose();
+    }
+    while (this.urbanGroup.children.length > 0) {
+      const u = this.urbanGroup.children.pop();
+      if (u.geometry) u.geometry.dispose();
+    }
+
+    const preset = this.sitePreset;
+
+    if (preset === 'studio') {
+      this.buildStudioPlinth();
+      return;
+    }
+
+    // 1. Topography / Terrain Mesh
+    const terrainSize = 120;
+    const segments = 64;
+    const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, segments, segments);
+    terrainGeo.rotateX(-Math.PI / 2);
+
+    const pos = terrainGeo.attributes.position;
+    const colors = new Float32Array(pos.count * 3);
+
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+
+      let elevation = 0;
+
+      // Keep building parcel relatively flat around (0,0)
+      const distFromCenter = Math.sqrt(x * x + z * z);
+      const parcelFlatten = Math.min(1.0, Math.max(0.0, (distFromCenter - 14) / 25));
+
+      if (preset === 'mountain') {
+        // Alpine mountain ridge rising to the North and East
+        const mountainRidge = Math.sin(x * 0.05 + 1.2) * Math.cos(z * 0.04) * 18.0;
+        const slope = (z * 0.25) + (x * 0.15);
+        elevation = (mountainRidge + slope + 8) * parcelFlatten;
+      } else if (preset === 'coastal') {
+        // Gentle slope towards water body on South (-Z)
+        const coastalSlope = Math.max(-2.5, (z + 12) * 0.12);
+        elevation = coastalSlope * parcelFlatten;
+      } else if (preset === 'forest') {
+        // Gentle rolling terrain
+        const undulation = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 3.5;
+        elevation = undulation * parcelFlatten;
+      } else if (preset === 'urban') {
+        elevation = 0;
+      }
+
+      pos.setY(i, elevation - 0.2);
+
+      // Color mapping based on elevation & slope
+      let r = 0.12, g = 0.20, b = 0.14; // Default grass green
+      if (preset === 'mountain' && elevation > 14.0) {
+        // Rock & snow
+        r = 0.75; g = 0.78; b = 0.85;
+      } else if (preset === 'mountain' && elevation > 7.0) {
+        // Alpine rock slate
+        r = 0.32; g = 0.35; b = 0.40;
+      } else if (preset === 'coastal' && elevation < 0.2) {
+        // Coastal sandy shoreline
+        r = 0.65; g = 0.60; b = 0.45;
+      } else if (preset === 'forest') {
+        // Rich deep forest soil & moss
+        r = 0.08; g = 0.24; b = 0.12;
+      }
+
+      colors[i * 3] = r;
+      colors[i * 3 + 1] = g;
+      colors[i * 3 + 2] = b;
+    }
+
+    terrainGeo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+    terrainGeo.computeVertexNormals();
+
+    const terrainMat = new THREE.MeshStandardMaterial({
+      vertexColors: true,
+      roughness: 0.85,
+      metalness: 0.05,
+      flatShading: true
+    });
+
+    this.terrainMesh = new THREE.Mesh(terrainGeo, terrainMat);
+    this.terrainMesh.receiveShadow = true;
+    this.environmentGroup.add(this.terrainMesh);
+
+    // 2. Water Feature (Lakes / Sea / Coastal Shoreline)
+    if (preset === 'coastal' || this.envParams.has_water) {
+      const waterSize = 140;
+      const waterGeo = new THREE.PlaneGeometry(waterSize, 60, 32, 16);
+      waterGeo.rotateX(-Math.PI / 2);
+
+      const waterMat = new THREE.MeshStandardMaterial({
+        color: 0x1e3a8a,
+        roughness: 0.1,
+        metalness: 0.85,
+        transparent: true,
+        opacity: 0.88
+      });
+
+      this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
+      this.waterMesh.position.set(0, -0.4, -45); // South water body
+      this.waterMesh.receiveShadow = true;
+      this.environmentGroup.add(this.waterMesh);
+    }
+
+    // 3. Tree Canopies & Vegetation
+    if (preset === 'forest' || preset === 'coastal' || preset === 'mountain') {
+      const count = preset === 'forest' ? 36 : preset === 'coastal' ? 18 : 12;
+      this.spawnProceduralTrees(count);
+    }
+
+    // 4. Urban Context Buildings
+    if (preset === 'urban' || this.envParams.urban_shadows) {
+      this.spawnUrbanBuildings();
+    }
+  }
+
+  buildStudioPlinth() {
+    const plinthGeo = new THREE.CylinderGeometry(34, 36, 0.4, 64);
     const plinthMat = new THREE.MeshStandardMaterial({
       color: 0x141822,
       roughness: 0.85,
       metalness: 0.1
     });
-    const plinth = new THREE.Mesh(plinthGeo, plinthMat);
-    plinth.position.y = -0.22;
-    plinth.receiveShadow = true;
-    this.scene.add(plinth);
+    this.terrainMesh = new THREE.Mesh(plinthGeo, plinthMat);
+    this.terrainMesh.position.y = -0.22;
+    this.terrainMesh.receiveShadow = true;
+    this.environmentGroup.add(this.terrainMesh);
 
-    // Modern studio grid helper
     const grid = new THREE.GridHelper(50, 50, 0x334155, 0x1e293b);
     grid.position.y = 0.01;
-    this.scene.add(grid);
+    this.environmentGroup.add(grid);
+  }
+
+  /**
+   * Spawns realistic 3D tree canopies (foliage + trunks) around the parcel.
+   */
+  spawnProceduralTrees(numTrees) {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
+    const foliageColors = [0x15803d, 0x166534, 0x22c55e, 0x047857, 0x84cc16];
+
+    for (let i = 0; i < numTrees; i++) {
+      // Position around building perimeter (avoiding building footprint)
+      const angle = Math.random() * Math.PI * 2;
+      const dist = 14.0 + Math.random() * 32.0;
+      const x = Math.cos(angle) * dist;
+      const z = Math.sin(angle) * dist;
+
+      // Don't place deep in South water if coastal
+      if (this.sitePreset === 'coastal' && z < -18) continue;
+
+      const scale = 0.7 + Math.random() * 0.6;
+      this.createTree(x, z, scale, trunkMat, foliageColors);
+    }
+
+    // Re-add custom user-planted trees
+    this.customTrees.forEach(t => {
+      this.createTree(t.x, t.z, t.scale || 1.0, trunkMat, foliageColors);
+    });
+  }
+
+  createTree(x, z, scale, trunkMat, foliageColors) {
+    const treeGroup = new THREE.Group();
+
+    // Trunk
+    const trunkHeight = 2.4 * scale;
+    const trunkGeo = new THREE.CylinderGeometry(0.18 * scale, 0.28 * scale, trunkHeight, 8);
+    const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
+    trunkMesh.position.y = trunkHeight / 2;
+    trunkMesh.castShadow = true;
+    trunkMesh.receiveShadow = true;
+    treeGroup.add(trunkMesh);
+
+    // Foliage Canopy (Double tiered cone/sphere for natural canopy look)
+    const foliageColor = foliageColors[Math.floor(Math.random() * foliageColors.length)];
+    const foliageMat = new THREE.MeshStandardMaterial({
+      color: foliageColor,
+      roughness: 0.75,
+      metalness: 0.1,
+      flatShading: true
+    });
+
+    const canopyRadius = (1.8 + Math.random() * 0.8) * scale;
+    const canopyHeight = 4.0 * scale;
+    const canopyGeo = new THREE.ConeGeometry(canopyRadius, canopyHeight, 8);
+    const canopyMesh = new THREE.Mesh(canopyGeo, foliageMat);
+    canopyMesh.position.y = trunkHeight + canopyHeight / 2 - 0.4;
+    canopyMesh.castShadow = true;
+    canopyMesh.receiveShadow = true;
+    treeGroup.add(canopyMesh);
+
+    // Second lower foliage tier
+    const tierGeo = new THREE.ConeGeometry(canopyRadius * 1.25, canopyHeight * 0.65, 8);
+    const tierMesh = new THREE.Mesh(tierGeo, foliageMat);
+    tierMesh.position.y = trunkHeight + canopyHeight * 0.25;
+    tierMesh.castShadow = true;
+    treeGroup.add(tierMesh);
+
+    // Get terrain height at (x, z)
+    const yPos = this.getTerrainHeightAt(x, z);
+    treeGroup.position.set(x, yPos, z);
+
+    this.treesGroup.add(treeGroup);
+  }
+
+  getTerrainHeightAt(x, z) {
+    if (!this.terrainMesh || this.sitePreset === 'studio') return 0;
+    // Approximation matching terrain generation function
+    const dist = Math.sqrt(x * x + z * z);
+    const flatten = Math.min(1.0, Math.max(0.0, (dist - 14) / 25));
+    if (this.sitePreset === 'mountain') {
+      const mountainRidge = Math.sin(x * 0.05 + 1.2) * Math.cos(z * 0.04) * 18.0;
+      return (mountainRidge + (z * 0.25) + (x * 0.15) + 8) * flatten - 0.2;
+    } else if (this.sitePreset === 'coastal') {
+      return Math.max(-2.5, (z + 12) * 0.12) * flatten - 0.2;
+    }
+    return 0;
+  }
+
+  /**
+   * Spawns surrounding urban towers casting real urban shadows onto the parcel.
+   */
+  spawnUrbanBuildings() {
+    const buildingMat = new THREE.MeshStandardMaterial({
+      color: 0x334155,
+      roughness: 0.4,
+      metalness: 0.2
+    });
+
+    const contextBuildings = [
+      { x: -28, z: -15, w: 18, d: 22, h: 28 },
+      { x: 26, z: -18, w: 16, d: 20, h: 24 },
+      { x: -30, z: 22, w: 20, d: 18, h: 35 },
+      { x: 28, z: 24, w: 22, d: 24, h: 32 }
+    ];
+
+    contextBuildings.forEach(b => {
+      const geo = new THREE.BoxGeometry(b.w, b.h, b.d);
+      const mesh = new THREE.Mesh(geo, buildingMat);
+      mesh.position.set(b.x, b.h / 2, b.z);
+      mesh.castShadow = true;
+      mesh.receiveShadow = true;
+
+      // Subtle edge line
+      const edges = new THREE.EdgesGeometry(geo);
+      const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.4 }));
+      mesh.add(line);
+
+      this.urbanGroup.add(mesh);
+    });
+  }
+
+  setSitePreset(presetKey) {
+    this.sitePreset = presetKey;
+    this.envParams.site_preset = presetKey;
+    this.buildEnvironment();
+    this.rebuildArchitecture();
+  }
+
+  togglePlantTreeTool(active) {
+    this.plantTreeToolActive = active;
+  }
+
+  onCanvasClick(event) {
+    if (!this.plantTreeToolActive || !this.terrainMesh) return;
+
+    const rect = this.renderer.domElement.getBoundingClientRect();
+    this.mouse.x = ((event.clientX - rect.left) / rect.width) * 2 - 1;
+    this.mouse.y = -((event.clientY - rect.top) / rect.height) * 2 + 1;
+
+    this.raycaster.setFromCamera(this.mouse, this.camera);
+    const intersects = this.raycaster.intersectObject(this.terrainMesh);
+
+    if (intersects.length > 0) {
+      const p = intersects[0].point;
+      // Do not plant inside the building footprint
+      if (Math.abs(p.x) < this.params.room_width / 2 + 1 && Math.abs(p.z) < this.params.room_depth / 2 + 1) {
+        return;
+      }
+      this.customTrees.push({ x: p.x, z: p.z, scale: 0.9 + Math.random() * 0.4 });
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
+      const foliageColors = [0x15803d, 0x166534, 0x22c55e, 0x047857];
+      this.createTree(p.x, p.z, 1.0, trunkMat, foliageColors);
+
+      // Dispatch event for UI
+      if (window.dispatchEvent) {
+        window.dispatchEvent(new CustomEvent('treePlanted', { detail: { count: this.customTrees.length } }));
+      }
+    }
   }
 
   /**
    * Rebuilds the parametric building geometry based on current parameters.
    */
   rebuildArchitecture() {
-    // Clear previous children
     while (this.buildingGroup.children.length > 0) {
       const obj = this.buildingGroup.children.pop();
       if (obj.geometry) obj.geometry.dispose();
@@ -176,7 +510,6 @@ export class SpatialViewport {
     const height = 4.2;
     const clipPlanes = this.clippingEnabled ? [this.sectionPlane] : [];
 
-    // Common materials
     const concreteMat = new THREE.MeshStandardMaterial({
       color: 0x384152,
       roughness: 0.7,
@@ -225,7 +558,7 @@ export class SpatialViewport {
     roofMesh.receiveShadow = true;
     this.buildingGroup.add(roofMesh);
 
-    // 4. Structural Columns (Concrete / Steel circular columns)
+    // 4. Structural Columns
     const colRadius = 0.24;
     const colGeo = new THREE.CylinderGeometry(colRadius, colRadius, height, 24);
     const colPositions = [
@@ -242,7 +575,7 @@ export class SpatialViewport {
       this.buildingGroup.add(col);
     });
 
-    // 5. Opaque Walls (North / Rear Wall, Left and Right Side Walls)
+    // 5. Opaque Walls
     const wallThick = 0.28;
     // North Wall (+Z)
     const northWallGeo = new THREE.BoxGeometry(room_width, height, wallThick);
@@ -275,7 +608,7 @@ export class SpatialViewport {
     glassMesh.position.set(0, slabThickness + glassH / 2 + (height - glassH) / 2, -room_depth / 2);
     this.buildingGroup.add(glassMesh);
 
-    // South facade spandrel wall below/above glazing
+    // Spandrel wall
     const sillHeight = (height - glassH) / 2;
     if (sillHeight > 0.05) {
       const sillGeo = new THREE.BoxGeometry(room_width, sillHeight, wallThick);
@@ -306,10 +639,6 @@ export class SpatialViewport {
     }
   }
 
-  /**
-   * Creates a high-resolution grid surface mesh and calculates per-vertex false colors
-   * corresponding to the active regression metric (Daylight, Solar, Stress).
-   */
   createHeatmapSurface(width, depth, yLevel, clipPlanes) {
     const segX = 36;
     const segZ = 36;
@@ -326,35 +655,29 @@ export class SpatialViewport {
       const x = positions.getX(i);
       const z = positions.getZ(i);
 
-      // Distance from South Window (-depth / 2)
       const distFromWindow = z - (-depth / 2);
       const normDist = Math.max(0, Math.min(1, distFromWindow / depth));
-
-      // Normalized lateral coordinate
       const normX = Math.abs(x) / (width / 2);
 
       let scalar = 0.5;
 
       if (this.activeMetric === 'sda_percent') {
-        // Daylight illuminance decreases exponentially with depth from window
         const windowTrans = Math.sqrt(wwr) * Math.cos(THREE.MathUtils.degToRad(louver_angle)) * (1.0 - 0.2 * overhang_depth);
         const dayLight = Math.exp(-normDist * (2.2 + room_depth * 0.05)) * windowTrans * 1.5;
-        // Corner falloff
         scalar = Math.max(0.05, Math.min(1.0, dayLight * (1.0 - normX * 0.25)));
       } else if (this.activeMetric === 'cooling_load') {
-        // Solar heat gain concentration near window and periphery
         const solarZone = Math.max(0, 1.0 - normDist * 1.8) * Math.sqrt(wwr);
         scalar = Math.max(0.1, Math.min(0.95, 0.2 + solarZone * 0.75 + (1 - normDist) * 0.1));
       } else if (this.activeMetric === 'peak_stress') {
-        // Bending moment peaks at mid-span, shear peaks at column supports
         const spanDist = Math.sin((normDist) * Math.PI) * Math.cos((x / (width / 2)) * (Math.PI / 2.5));
         scalar = Math.max(0.1, Math.min(1.0, 0.15 + spanDist * 0.8));
+      } else if (this.activeMetric === 'biophilic_view') {
+        // Biophilic views highest near facade and corners looking at trees/water
+        scalar = Math.max(0.1, Math.min(0.95, (1.0 - normDist * 0.8) * (0.8 + normX * 0.2)));
       } else {
-        // Embodied carbon distribution
         scalar = 0.35 + (normX * 0.3) + (1.0 - normDist) * 0.35;
       }
 
-      // Map scalar [0, 1] to RGB
       const [r, g, b] = this.sampleColormap(scalar, this.colormap);
       colors[i * 3] = r;
       colors[i * 3 + 1] = g;
@@ -377,13 +700,9 @@ export class SpatialViewport {
     this.buildingGroup.add(this.heatmapMesh);
   }
 
-  /**
-   * Colormap interpolator (Turbo, Viridis, Plasma, CoolWarm).
-   */
   sampleColormap(val, mapType) {
     const t = Math.max(0, Math.min(1, val));
     if (mapType === 'viridis') {
-      // Viridis polynomial
       const r = Math.max(0, Math.min(1, 0.28 + 0.75 * t - 0.25 * t * t));
       const g = Math.max(0, Math.min(1, 0.05 + 1.25 * t - 0.45 * t * t));
       const b = Math.max(0, Math.min(1, 0.55 - 0.5 * t + 0.65 * (1 - t) * (1 - t)));
@@ -394,7 +713,6 @@ export class SpatialViewport {
       const b = Math.max(0, Math.min(1, 0.55 + 0.8 * (1 - t) - 0.4 * (1 - t) * (1 - t)));
       return [r, g, b];
     } else {
-      // Default: Turbo colormap
       const r = Math.max(0, Math.min(1, 0.15 + 2.2 * t - 1.35 * t * t));
       const g = Math.max(0, Math.min(1, 0.1 + 1.8 * Math.sin(t * Math.PI) - 0.2 * t));
       const b = Math.max(0, Math.min(1, 0.85 - 1.8 * t + 1.0 * t * t));
@@ -402,9 +720,6 @@ export class SpatialViewport {
     }
   }
 
-  /**
-   * Builds the 3D Spatial Adjacency Graph Overlay with glowing nodes and connecting chords.
-   */
   buildSpatialGraph() {
     while (this.spatialGraphGroup.children.length > 0) {
       const child = this.spatialGraphGroup.children.pop();
@@ -414,7 +729,6 @@ export class SpatialViewport {
 
     if (!this.showSpatialGraph) return;
 
-    // Room nodes data
     const nodes = [
       { id: 'atrium', label: 'Central Atrium', pos: [0, 2.2, 0], color: 0x38bdf8 },
       { id: 'south_office', label: 'South Daylit Zone', pos: [0, 2.2, -4.5], color: 0x4ade80 },
@@ -434,7 +748,6 @@ export class SpatialViewport {
 
     const nodeMap = new Map();
 
-    // Create 3D Nodes
     nodes.forEach(node => {
       const nodeGeo = new THREE.SphereGeometry(0.42, 24, 24);
       const nodeMat = new THREE.MeshStandardMaterial({
@@ -446,7 +759,6 @@ export class SpatialViewport {
       const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
       nodeMesh.position.set(node.pos[0], node.pos[1], node.pos[2]);
 
-      // Glowing outer ring
       const ringGeo = new THREE.RingGeometry(0.55, 0.72, 32);
       ringGeo.rotateX(-Math.PI / 2);
       const ringMat = new THREE.MeshBasicMaterial({
@@ -462,14 +774,12 @@ export class SpatialViewport {
       nodeMap.set(node.id, nodeMesh.position);
     });
 
-    // Create 3D Connection Chords (Adjacency Graph Edges)
     edges.forEach(([idA, idB]) => {
       const posA = nodeMap.get(idA);
       const posB = nodeMap.get(idB);
       if (!posA || !posB) return;
 
-      const points = [posA, posB];
-      const lineGeo = new THREE.BufferGeometry().setFromPoints(points);
+      const lineGeo = new THREE.BufferGeometry().setFromPoints([posA, posB]);
       const lineMat = new THREE.LineBasicMaterial({
         color: 0x38bdf8,
         transparent: true,
@@ -520,28 +830,25 @@ export class SpatialViewport {
   setCameraView(viewPreset) {
     switch (viewPreset) {
       case 'iso':
-        this.camera.position.set(22, 18, 26);
+        this.camera.position.set(28, 22, 34);
         this.controls.target.set(0, 2.5, 0);
         break;
       case 'top':
-        this.camera.position.set(0, 36, 0.001);
+        this.camera.position.set(0, 48, 0.001);
         this.controls.target.set(0, 0, 0);
         break;
       case 'south':
-        this.camera.position.set(0, 4, -28);
+        this.camera.position.set(0, 5, -34);
         this.controls.target.set(0, 2.5, 0);
         break;
       case 'east':
-        this.camera.position.set(28, 4, 0);
+        this.camera.position.set(34, 5, 0);
         this.controls.target.set(0, 2.5, 0);
         break;
     }
     this.controls.update();
   }
 
-  /**
-   * Exports the live 3D building mesh with per-vertex attributes to binary glTF (.glb)
-   */
   exportGLB() {
     const exporter = new GLTFExporter();
     exporter.parse(
@@ -573,6 +880,12 @@ export class SpatialViewport {
   animate() {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
+
+    // Subtle water surface shimmer animation
+    if (this.waterMesh) {
+      this.waterMesh.rotation.z = Math.sin(Date.now() * 0.0008) * 0.015;
+    }
+
     if (this.renderer && this.scene && this.camera) {
       this.renderer.render(this.scene, this.camera);
     }

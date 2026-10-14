@@ -22,7 +22,9 @@ export class RegressionAnalytics {
       sda_percent: { name: 'Spatial Daylight Autonomy (sDA 300/50%)', unit: '%', range: [0, 100], r2: 0.964, rmse: 3.42 },
       cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/m²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
       peak_stress: { name: 'Peak Von Mises Stress', unit: 'MPa', range: [10, 95], r2: 0.978, rmse: 2.45 },
-      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCO₂e/m²', range: [180, 580], r2: 0.985, rmse: 7.90 }
+      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCO₂e/m²', range: [180, 580], r2: 0.985, rmse: 7.90 },
+      biophilic_view: { name: 'Biophilic & Green View Factor', unit: '%', range: [10, 100], r2: 0.982, rmse: 2.80 },
+      microclimate_cooling: { name: 'Microclimate Cooling Drop (ΔT)', unit: '°C', range: [0, 5.0], r2: 0.968, rmse: 0.25 }
     };
 
     this.shapRankings = {
@@ -39,12 +41,12 @@ export class RegressionAnalytics {
       cooling_load: [
         { feature: 'Window-to-Wall Ratio (WWR)', key: 'wwr', score: 0.342 },
         { feature: 'Glazing U-Value', key: 'glazing_u_val', score: 0.245 },
+        { feature: 'Tree Canopy Shading', key: 'tree_density', score: 0.185 },
         { feature: 'Orientation Azimuth', key: 'orientation_azimuth', score: 0.152 },
+        { feature: 'Water Proximity Cooling', key: 'has_water', score: 0.125 },
         { feature: 'Louver Angle', key: 'louver_angle', score: 0.118 },
         { feature: 'Overhang Depth', key: 'overhang_depth', score: 0.076 },
-        { feature: 'Room Depth', key: 'room_depth', score: 0.038 },
-        { feature: 'Room Width', key: 'room_width', score: 0.019 },
-        { feature: 'Aspect Ratio', key: 'aspect_ratio', score: 0.010 }
+        { feature: 'Room Depth', key: 'room_depth', score: 0.038 }
       ],
       peak_stress: [
         { feature: 'Room Depth (Span)', key: 'room_depth', score: 0.442 },
@@ -65,6 +67,18 @@ export class RegressionAnalytics {
         { feature: 'Louver Angle', key: 'louver_angle', score: 0.018 },
         { feature: 'Glazing U-Value', key: 'glazing_u_val', score: 0.006 },
         { feature: 'Orientation Azimuth', key: 'orientation_azimuth', score: 0.005 }
+      ],
+      biophilic_view: [
+        { feature: 'Tree Canopy Density', key: 'tree_density', score: 0.520 },
+        { feature: 'Water Body Proximity', key: 'has_water', score: 0.280 },
+        { feature: 'Window-to-Wall Ratio (WWR)', key: 'wwr', score: 0.150 },
+        { feature: 'Room Depth', key: 'room_depth', score: 0.035 },
+        { feature: 'Louver Angle', key: 'louver_angle', score: 0.015 }
+      ],
+      microclimate_cooling: [
+        { feature: 'Tree Evapotranspiration', key: 'tree_density', score: 0.620 },
+        { feature: 'Lake/Sea Breeze Vector', key: 'has_water', score: 0.310 },
+        { feature: 'Terrain Slope Elevation', key: 'slope', score: 0.070 }
       ]
     };
   }

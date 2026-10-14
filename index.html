@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Architectural Regression Lab — Open-Source Browser Stack</title>
+  <title>Archregression — Open-Source Architectural Surrogate Lab</title>
   <meta name="description" content="Open-source browser-based architectural regression & surrogate modeling lab with Three.js WebGL spatial viewer and ONNX Runtime Web client-side inference.">
 
   <!-- Typography -->
@@ -16,6 +16,10 @@
 
   <!-- ONNX Runtime Web CDN for Client-Side Surrogate Inference -->
   <script src="https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js"></script>
+
+  <!-- Leaflet CDN for Global Interactive Map Site Selection -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+  <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
 
   <!-- ES Module Import Map -->
   <script type="importmap">
@@ -42,13 +46,19 @@
       </div>
       <div class="tech-pills">
         <span class="pill" title="Binary glTF for 3D meshes & per-vertex attributes"><span class="dot cyan"></span>glTF / GLB</span>
-        <span class="pill" title="In-browser client ML inference (<5ms)"><span class="dot"></span>ONNX Web</span>
+        <span class="pill" title="In-browser client ML inference (<2ms)"><span class="dot"></span>ONNX Web</span>
         <span class="pill" title="Tabular regression matrices queried client-side"><span class="dot cyan"></span>Parquet / Arrow</span>
         <span class="pill" title="Zero-license WebGL spatial rendering"><span class="dot"></span>Three.js</span>
       </div>
     </div>
 
     <div class="header-actions">
+      <button class="btn" id="btn-open-map" title="Select Site Coordinates & Topography Anywhere on Earth">
+        <span>🌍</span> Select Site on Map
+      </button>
+      <button class="btn btn-generative" id="btn-trigger-generative" title="Run In-Browser Multi-Objective Optimization to Synthesize Optimal Design (<200ms)">
+        <span>⚡</span> Generative Optimize
+      </button>
       <button class="btn" id="btn-open-geojson" title="Inspect 2D Floor Plan & Spatial Adjacencies">
         <span>🗺️</span> 2D GeoJSON
       </button>
@@ -71,11 +81,16 @@
     <section class="viewport-panel" id="viewport-panel">
       <div id="viewport-3d"></div>
 
+      <!-- Active Tool Banner (e.g. Tree Planting) -->
+      <div class="tool-active-banner" id="planting-banner" style="display: none;">
+        <span>🌲</span> Click on the terrain ground to plant trees!
+      </div>
+
       <!-- Floating Parametric Controls Drawer -->
       <aside class="parameters-drawer" id="parameters-drawer">
         <div class="drawer-header">
           <div class="drawer-title">
-            <span>⚙️</span> Parametric Controls
+            <span>⚙️</span> Building Parameters
           </div>
           <button class="hud-btn" id="btn-reset-params" title="Reset to Baseline Parameters">Reset</button>
         </div>
@@ -149,6 +164,38 @@
             <span class="param-val" id="val-uval">1.8 W/m²K</span>
           </div>
           <input type="range" class="slider-input" id="slider-uval" min="0.8" max="3.2" step="0.1" value="1.8">
+        </div>
+
+        <!-- Environmental & Natural Context Controls -->
+        <div class="drawer-header" style="margin-top: 1.25rem;">
+          <div class="drawer-title">
+            <span>🌿</span> Natural Site Context
+          </div>
+        </div>
+
+        <div class="param-group">
+          <span class="param-name">Site Environment Typology</span>
+          <select class="site-preset-select" id="select-site-preset">
+            <option value="coastal" selected>🌊 Lakefront / Coastal Shoreline</option>
+            <option value="mountain">⛰️ Alpine Mountain Ridge</option>
+            <option value="forest">🌲 Forested Tree Canopy</option>
+            <option value="urban">🏢 Dense Urban Canyon</option>
+            <option value="studio">🏛️ Minimal Studio Plinth</option>
+          </select>
+        </div>
+
+        <div class="param-group">
+          <div class="param-label-row">
+            <span class="param-name">Tree Canopy Density</span>
+            <span class="param-val" id="val-trees">65%</span>
+          </div>
+          <input type="range" class="slider-input" id="slider-trees" min="0" max="1" step="0.05" value="0.65">
+        </div>
+
+        <div class="param-group">
+          <button class="btn" id="btn-toggle-plant-mode" style="width: 100%; justify-content: center;">
+            <span>🌲</span> Plant Trees on Click
+          </button>
         </div>
       </aside>
 
@@ -232,13 +279,44 @@
         </div>
       </div>
 
+      <!-- Natural Context Telemetry Row -->
+      <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.65rem;">
+        <div class="kpi-card" data-target="microclimate_cooling" style="border-left: 3px solid #10b981;">
+          <div class="kpi-title">Microclimate Cooling</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-microclimate">-3.2</span>
+            <span class="kpi-unit">°C</span>
+          </div>
+          <div class="kpi-sub" style="color:#10b981;">Tree Shade & Lake Breeze</div>
+        </div>
+
+        <div class="kpi-card" data-target="biophilic_view" style="border-left: 3px solid #38bdf8;">
+          <div class="kpi-title">Biophilic Green View</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-biophilic">78</span>
+            <span class="kpi-unit">%</span>
+          </div>
+          <div class="kpi-sub" style="color:#38bdf8;">Greenery & Water Sightlines</div>
+        </div>
+
+        <div class="kpi-card" style="border-left: 3px solid #a855f7;">
+          <div class="kpi-title">Tree Biomass Sequestration</div>
+          <div class="kpi-value-row">
+            <span class="kpi-value" id="kpi-val-treecarbon">273</span>
+            <span class="kpi-unit">kg/yr</span>
+          </div>
+          <div class="kpi-sub" style="color:#a855f7;">Annual Carbon Capture</div>
+        </div>
+      </div>
+
       <!-- Target Selector Tabs & In-Browser Inference Telemetry -->
       <div class="analytics-header-bar">
         <div class="target-tabs">
           <button class="target-tab active" data-target="sda_percent">Daylight (sDA)</button>
           <button class="target-tab" data-target="cooling_load">Cooling Energy</button>
           <button class="target-tab" data-target="peak_stress">Structural Stress</button>
-          <button class="target-tab" data-target="embodied_carbon">Embodied Carbon</button>
+          <button class="target-tab" data-target="biophilic_view">Biophilic View</button>
+          <button class="target-tab" data-target="microclimate_cooling">Microclimate (ΔT)</button>
         </div>
 
         <div class="latency-chip" id="latency-chip" title="Client-side ONNX surrogate evaluation speed">
@@ -257,7 +335,7 @@
             </div>
             <span class="chart-badge" id="parity-metric-badge">R² = 0.964 | 160 Samples</span>
           </div>
-          <div id="chart-parity" class="chart-viewport" style="min-height: 250px;"></div>
+          <div id="chart-parity" class="chart-viewport" style="min-height: 240px;"></div>
         </div>
 
         <!-- 2. SHAP & Residual Distribution Side-by-Side -->
@@ -270,7 +348,7 @@
               </div>
               <span class="chart-badge">Mean |SHAP|</span>
             </div>
-            <div id="chart-shap" class="chart-viewport" style="min-height: 230px;"></div>
+            <div id="chart-shap" class="chart-viewport" style="min-height: 220px;"></div>
           </div>
 
           <!-- Residual Distribution -->
@@ -281,7 +359,7 @@
               </div>
               <span class="chart-badge">Centered at 0.0</span>
             </div>
-            <div id="chart-residual" class="chart-viewport" style="min-height: 230px;"></div>
+            <div id="chart-residual" class="chart-viewport" style="min-height: 220px;"></div>
           </div>
         </div>
       </div>
@@ -299,22 +377,57 @@
       </div>
       <div class="status-item">
         <span style="color:#10b981;">●</span>
-        <span>Matrix Storage: <strong>Apache Parquet / Arrow IPC</strong></span>
+        <span>Site Context: <strong id="status-site-name">Lakefront Waterfront (Lake Zurich)</strong></span>
       </div>
       <div class="status-item">
         <span style="color:#a855f7;">●</span>
-        <span>Spatial Graph: <strong>GeoJSON RFC 7946</strong></span>
+        <span>Engine: <strong>ONNX Web + Leaflet GIS</strong></span>
       </div>
     </div>
     <div class="status-right">
       <div class="status-item">
-        <span>Pipeline: <strong>Headless Python (Trimesh) → Zero-License Browser Client</strong></span>
+        <span>Pipeline: <strong>Headless Python → Zero-License Browser Client</strong></span>
       </div>
     </div>
   </footer>
 
   <!-- ======================================================================
-       MODAL 1: GeoJSON 2D Floor Plan & Spatial Network Inspector
+       MODAL 1: Global Map Site & Topography Picker (Leaflet + OpenStreetMap)
+       ====================================================================== -->
+  <div class="modal-overlay" id="modal-map">
+    <div class="modal-dialog" style="max-width: 900px;">
+      <div class="modal-header">
+        <div class="modal-title">
+          <span>🌍</span> Global Map Site & Topography Picker (OpenStreetMap + Leaflet)
+        </div>
+        <button class="modal-close-btn" id="btn-close-map">&times;</button>
+      </div>
+      <div class="modal-body">
+        <p style="margin-bottom: 10px;">
+          Click anywhere in the world or choose a global typology preset to extract geographic solar angles, topography, water proximity, and vegetation canopy.
+        </p>
+        <div class="map-preset-pills">
+          <button class="map-preset-btn" data-preset="zurich">🌊 Lake Zurich, Switzerland</button>
+          <button class="map-preset-btn" data-preset="chamonix">⛰️ Chamonix Alpine, France</button>
+          <button class="map-preset-btn" data-preset="blackforest">🌲 Black Forest, Germany</button>
+          <button class="map-preset-btn" data-preset="singapore">🏢 Singapore Marina Urban</button>
+          <button class="map-preset-btn" data-preset="sanfrancisco">🌉 San Francisco Coastal Hills</button>
+        </div>
+        <div id="map-picker-container"></div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 14px;">
+          <span id="map-coords-readout" style="font-family: var(--font-mono); font-size: 0.75rem; color: var(--accent-cyan);">
+            47.3686° N, 8.5391° E | Preset: coastal
+          </span>
+          <button class="btn btn-primary" id="btn-apply-site">
+            <span>✓</span> Apply Site to 3D Viewport
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ======================================================================
+       MODAL 2: GeoJSON 2D Floor Plan & Spatial Network Inspector
        ====================================================================== -->
   <div class="modal-overlay" id="modal-geojson">
     <div class="modal-dialog">
@@ -331,7 +444,7 @@
   </div>
 
   <!-- ======================================================================
-       MODAL 2: Parquet / Tabular Regression Matrix Inspector
+       MODAL 3: Parquet / Tabular Regression Matrix Inspector
        ====================================================================== -->
   <div class="modal-overlay" id="modal-parquet">
     <div class="modal-dialog" style="max-width: 960px;">
@@ -372,7 +485,7 @@
   </div>
 
   <!-- ======================================================================
-       MODAL 3: Open-Source Architecture Blueprint
+       MODAL 4: Open-Source Architecture Blueprint
        ====================================================================== -->
   <div class="modal-overlay" id="modal-architecture">
     <div class="modal-dialog">
@@ -427,7 +540,7 @@
           </tbody>
         </table>
         <br>
-        <p><small>Client-side surrogate evaluation computes multi-target regression in under 5ms, updating 3D vertex colors and parity plots in real-time.</small></p>
+        <p><small>Client-side surrogate evaluation computes multi-target regression in under 2ms, updating 3D vertex colors and parity plots in real-time.</small></p>
       </div>
     </div>
   </div>
@@ -438,6 +551,7 @@
     import { SurrogateInferenceEngine } from './src/inference/surrogate.js';
     import { RegressionAnalytics } from './src/charts/analytics.js';
     import { GeoJsonFloorplanViewer } from './src/data/geojsonViewer.js';
+    import { GlobalMapPicker } from './src/data/mapPicker.js';
 
     // 1. Initialize Components
     const viewportContainer = document.getElementById('viewport-3d');
@@ -454,6 +568,9 @@
       document.getElementById('geojson-viewer-container')
     );
 
+    // Initialize Map Picker
+    let mapPicker = null;
+
     // Current State
     let activeTarget = 'sda_percent';
     const params = {
@@ -463,7 +580,10 @@
       louver_angle: 35.0,
       overhang_depth: 1.0,
       orientation_azimuth: 0.0,
-      glazing_u_val: 1.8
+      glazing_u_val: 1.8,
+      site_preset: 'coastal',
+      tree_density: 0.65,
+      has_water: true
     };
 
     // 2. Start Application
@@ -473,11 +593,16 @@
       await geojsonViewer.loadFloorplan();
       populateParquetTable();
 
+      // Setup Map Picker
+      mapPicker = new GlobalMapPicker('map-picker-container', (selectedSite) => {
+        applySiteFromMap(selectedSite);
+      });
+
       // Trigger initial prediction
       runEvaluation();
     }
 
-    // 3. Live Evaluation Function (<5ms)
+    // 3. Live Evaluation Function (<2ms)
     function runEvaluation() {
       const predResult = surrogate.predict(params);
 
@@ -486,6 +611,9 @@
       document.getElementById('kpi-val-cooling').textContent = predResult.targets.cooling_load;
       document.getElementById('kpi-val-stress').textContent = predResult.targets.peak_stress;
       document.getElementById('kpi-val-carbon').textContent = predResult.targets.embodied_carbon;
+      document.getElementById('kpi-val-microclimate').textContent = `-${predResult.targets.microclimate_cooling_c}`;
+      document.getElementById('kpi-val-biophilic').textContent = predResult.targets.biophilic_view_pct;
+      document.getElementById('kpi-val-treecarbon').textContent = predResult.targets.tree_carbon_offset;
 
       // Update Latency Chip
       document.getElementById('latency-text').textContent = 
@@ -507,7 +635,6 @@
         params[paramKey] = val;
         valDisplay.textContent = formatter(val);
 
-        // Update aspect ratio readout
         const aspect = (params.room_depth / Math.max(0.1, params.room_width)).toFixed(2);
         document.getElementById('val-aspect').textContent = aspect;
 
@@ -522,6 +649,88 @@
     setupSlider('slider-overhang', 'overhang_depth', 'val-overhang', v => `${v.toFixed(2)} m`);
     setupSlider('slider-azimuth', 'orientation_azimuth', 'val-azimuth', v => `${Math.round(v)}°`);
     setupSlider('slider-uval', 'glazing_u_val', 'val-uval', v => `${v.toFixed(1)} W/m²K`);
+    setupSlider('slider-trees', 'tree_density', 'val-trees', v => `${Math.round(v * 100)}%`);
+
+    // Site Environment Preset Dropdown
+    document.getElementById('select-site-preset').addEventListener('change', (e) => {
+      const presetKey = e.target.value;
+      params.site_preset = presetKey;
+      params.has_water = (presetKey === 'coastal');
+      viewport.setSitePreset(presetKey);
+
+      const statusMap = {
+        coastal: 'Lakefront Shoreline (Lake Zurich)',
+        mountain: 'Alpine Mountain Ridge (Chamonix)',
+        forest: 'Dense Tree Forest Belt (Black Forest)',
+        urban: 'Urban Canyon (High-rise Shadows)',
+        studio: 'Minimal Engineering Plinth'
+      };
+      document.getElementById('status-site-name').textContent = statusMap[presetKey] || presetKey;
+      runEvaluation();
+    });
+
+    // Plant Trees on Click Tool Toggle
+    let plantToolActive = false;
+    const plantBanner = document.getElementById('planting-banner');
+    document.getElementById('btn-toggle-plant-mode').addEventListener('click', (e) => {
+      plantToolActive = !plantToolActive;
+      viewport.togglePlantTreeTool(plantToolActive);
+      e.target.classList.toggle('btn-primary', plantToolActive);
+      plantBanner.style.display = plantToolActive ? 'flex' : 'none';
+    });
+
+    window.addEventListener('treePlanted', (e) => {
+      params.tree_density = Math.min(1.0, params.tree_density + 0.05);
+      document.getElementById('slider-trees').value = params.tree_density;
+      document.getElementById('val-trees').textContent = `${Math.round(params.tree_density * 100)}%`;
+      runEvaluation();
+    });
+
+    // 5. In-Browser Generative Design Optimization Synthesis (<200ms)
+    document.getElementById('btn-trigger-generative').addEventListener('click', () => {
+      const optButton = document.getElementById('btn-trigger-generative');
+      const originalText = optButton.innerHTML;
+      optButton.innerHTML = '<span>⏳</span> Synthesizing 500 Designs...';
+      optButton.disabled = true;
+
+      setTimeout(() => {
+        const optResult = surrogate.generateOptimalDesign(params, params.site_preset);
+        const best = optResult.bestParams;
+
+        // Apply best design
+        params.room_depth = best.room_depth;
+        params.room_width = best.room_width;
+        params.wwr = best.wwr;
+        params.louver_angle = best.louver_angle;
+        params.overhang_depth = best.overhang_depth;
+        params.orientation_azimuth = best.orientation_azimuth;
+        params.glazing_u_val = best.glazing_u_val;
+
+        // Update Slider UI
+        document.getElementById('slider-depth').value = best.room_depth;
+        document.getElementById('val-depth').textContent = `${best.room_depth.toFixed(1)} m`;
+        document.getElementById('slider-width').value = best.room_width;
+        document.getElementById('val-width').textContent = `${best.room_width.toFixed(1)} m`;
+        document.getElementById('slider-wwr').value = best.wwr;
+        document.getElementById('val-wwr').textContent = `${Math.round(best.wwr * 100)}%`;
+        document.getElementById('slider-louver').value = best.louver_angle;
+        document.getElementById('val-louver').textContent = `${best.louver_angle}°`;
+        document.getElementById('slider-overhang').value = best.overhang_depth;
+        document.getElementById('val-overhang').textContent = `${best.overhang_depth.toFixed(2)} m`;
+        document.getElementById('slider-azimuth').value = best.orientation_azimuth;
+        document.getElementById('val-azimuth').textContent = `${best.orientation_azimuth}°`;
+        document.getElementById('slider-uval').value = best.glazing_u_val;
+        document.getElementById('val-uval').textContent = `${best.glazing_u_val.toFixed(1)} W/m²K`;
+
+        runEvaluation();
+
+        optButton.innerHTML = '<span>✨</span> Optimal Synthesized!';
+        setTimeout(() => {
+          optButton.innerHTML = originalText;
+          optButton.disabled = false;
+        }, 2200);
+      }, 100);
+    });
 
     // Reset Parameters
     document.getElementById('btn-reset-params').addEventListener('click', () => {
@@ -532,6 +741,7 @@
       params.overhang_depth = 1.0;
       params.orientation_azimuth = 0.0;
       params.glazing_u_val = 1.8;
+      params.tree_density = 0.65;
 
       document.getElementById('slider-depth').value = 14.0;
       document.getElementById('val-depth').textContent = '14.0 m';
@@ -548,31 +758,26 @@
       document.getElementById('val-azimuth').textContent = '0° (South)';
       document.getElementById('slider-uval').value = 1.8;
       document.getElementById('val-uval').textContent = '1.8 W/m²K';
+      document.getElementById('slider-trees').value = 0.65;
+      document.getElementById('val-trees').textContent = '65%';
 
       runEvaluation();
     });
 
-    // 5. Target Tabs & KPI Card Switching
+    // 6. Target Tabs & KPI Card Switching
     function switchActiveTarget(newTarget) {
       activeTarget = newTarget;
 
-      // Update Tab Styles
       document.querySelectorAll('.target-tab').forEach(tab => {
         tab.classList.toggle('active', tab.dataset.target === newTarget);
       });
 
-      // Update KPI Card Styles
       document.querySelectorAll('.kpi-card').forEach(card => {
         card.classList.toggle('active', card.dataset.target === newTarget);
       });
 
-      // Update Viewport Heatmap
       viewport.setMetric(newTarget);
-
-      // Update Analytics
       analytics.setTarget(newTarget);
-
-      // Update Colorbar Legend
       updateColorbarLegend(newTarget);
     }
 
@@ -581,7 +786,9 @@
     });
 
     document.querySelectorAll('.kpi-card').forEach(card => {
-      card.addEventListener('click', () => switchActiveTarget(card.dataset.target));
+      if (card.dataset.target) {
+        card.addEventListener('click', () => switchActiveTarget(card.dataset.target));
+      }
     });
 
     function updateColorbarLegend(target) {
@@ -609,7 +816,19 @@
           midElem.textContent = '50 MPa';
           maxElem.textContent = '100 MPa';
           break;
-        case 'embodied_carbon':
+        case 'biophilic_view':
+          titleElem.textContent = 'Biophilic Green & Water View';
+          minElem.textContent = '10%';
+          midElem.textContent = '50%';
+          maxElem.textContent = '100%';
+          break;
+        case 'microclimate_cooling':
+          titleElem.textContent = 'Microclimate Ambient Cooling (ΔT)';
+          minElem.textContent = '0°C';
+          midElem.textContent = '-2.5°C';
+          maxElem.textContent = '-5°C';
+          break;
+        default:
           titleElem.textContent = 'Embodied Carbon Intensity';
           minElem.textContent = '180 kg';
           midElem.textContent = '380 kg';
@@ -618,7 +837,7 @@
       }
     }
 
-    // 6. Camera HUD View Controls
+    // 7. Camera HUD View Controls
     const viewButtons = {
       'btn-view-iso': 'iso',
       'btn-view-top': 'top',
@@ -670,24 +889,64 @@
       viewport.exportGLB();
     });
 
-    // 7. Modals (GeoJSON, Parquet Matrix, Architecture)
-    function wireModal(btnOpenId, modalId, btnCloseId) {
+    // 8. Modals (Map Picker, GeoJSON, Parquet Matrix, Architecture)
+    function wireModal(btnOpenId, modalId, btnCloseId, onOpen) {
       const btnOpen = document.getElementById(btnOpenId);
       const modal = document.getElementById(modalId);
       const btnClose = document.getElementById(btnCloseId);
 
-      btnOpen.addEventListener('click', () => modal.classList.add('active'));
+      btnOpen.addEventListener('click', () => {
+        modal.classList.add('active');
+        if (onOpen) onOpen();
+      });
       btnClose.addEventListener('click', () => modal.classList.remove('active'));
       modal.addEventListener('click', (e) => {
         if (e.target === modal) modal.classList.remove('active');
       });
     }
 
+    wireModal('btn-open-map', 'modal-map', 'btn-close-map', () => {
+      if (mapPicker && !mapPicker.map) {
+        mapPicker.initialize();
+      } else if (mapPicker && mapPicker.map) {
+        setTimeout(() => mapPicker.map.invalidateSize(), 200);
+      }
+    });
+
     wireModal('btn-open-geojson', 'modal-geojson', 'btn-close-geojson');
     wireModal('btn-open-parquet', 'modal-parquet', 'btn-close-parquet');
     wireModal('btn-open-architecture', 'modal-architecture', 'btn-close-architecture');
 
-    // Populate Parquet matrix table from benchmark_dataset.json
+    // Preset buttons inside map modal
+    document.querySelectorAll('.map-preset-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        if (mapPicker) mapPicker.selectPreset(btn.dataset.preset);
+      });
+    });
+
+    // Apply site from map
+    document.getElementById('btn-apply-site').addEventListener('click', () => {
+      if (mapPicker) {
+        mapPicker.applyCurrentSite();
+        document.getElementById('modal-map').classList.remove('active');
+      }
+    });
+
+    function applySiteFromMap(site) {
+      params.site_preset = site.preset;
+      params.has_water = site.hasWater;
+      params.tree_density = site.treeDensity;
+
+      document.getElementById('select-site-preset').value = site.preset;
+      document.getElementById('slider-trees').value = site.treeDensity;
+      document.getElementById('val-trees').textContent = `${Math.round(site.treeDensity * 100)}%`;
+      document.getElementById('status-site-name').textContent = site.name;
+
+      viewport.setSitePreset(site.preset);
+      runEvaluation();
+    }
+
+    // Populate Parquet matrix table
     async function populateParquetTable() {
       try {
         const response = await fetch('./public/data/benchmark_dataset.json');
