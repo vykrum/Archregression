@@ -1,12 +1,14 @@
 /**
  * src/viewer/viewport.js
  * ======================
- * Three.js 3D Spatial Viewer with Variable Environmental Context:
- * - 3D Mountains & Sloped Topography Mesh
- * - Water Bodies (Lakes / Oceans) with Shimmering Surface
- * - Natural Tree Canopies & Vegetation with Dynamic Shadows
- * - Neighboring Urban Massings & Shading Obstacles
- * - Interactive Click-to-Plant Trees Tool
+ * Three.js 3D Spatial Viewer with Dynamic Topography & Variable Site Context:
+ * - Real 3D Mountain Topography (Alpine ridgelines, rock cliffs, snow peaks)
+ * - Ocean & Lake Water Bodies (Wave shimmers, beaches, coastal bluffs)
+ * - Biome-Adaptive Vegetation (Alpine Conifers, Coastal Cypress & Palms, Temperate Canopies)
+ * - Retaining Foundation Plinth & Terraced Building Parcel
+ * - Urban Context Massings & Realistic Shading
+ * - Custom Site Builder with dynamic terrain & water sliders
+ * - Click-to-Plant Trees Tool
  * - Procedural Architectural Pavilion with Per-Vertex Surface Heatmap
  * - 3D Spatial Room Adjacency Graph Overlays
  */
@@ -34,6 +36,8 @@ export class SpatialViewport {
     this.environmentGroup = null;
     this.terrainMesh = null;
     this.waterMesh = null;
+    this.foamMesh = null;
+    this.foundationPlinth = null;
     this.treesGroup = null;
     this.urbanGroup = null;
     this.customTrees = [];
@@ -44,17 +48,21 @@ export class SpatialViewport {
     this.showSpatialGraph = true;
     this.showWireframe = false;
     this.plantTreeToolActive = false;
-    this.sitePreset = 'coastal'; // 'coastal' | 'mountain' | 'forest' | 'urban' | 'studio'
+    this.sitePreset = 'ocean'; // 'ocean' | 'mountain' | 'lake' | 'forest' | 'urban' | 'studio' | 'custom'
 
-    // Environmental Parameters
+    // Environmental Parameters (Supports both Map-Detected & Custom Site Sliders)
     this.envParams = {
-      site_preset: 'coastal',
-      tree_density: 0.65,
-      water_proximity: 18.0, // meters to shoreline
-      terrain_slope: 12.0,   // degrees
-      mountain_height: 25.0, // max ridge altitude
-      urban_shadows: false,
-      has_water: true
+      site_preset: 'ocean',
+      mountain_height: 18.0, // Peak height (m)
+      terrain_slope: 14.0,   // Slope angle (degrees)
+      slope_direction: 'south', // 'south' | 'north' | 'east' | 'west'
+      ruggedness: 0.55,      // 0.0 (smooth) to 1.0 (jagged)
+      water_type: 'ocean',   // 'none' | 'ocean' | 'lake'
+      water_proximity: 20.0, // distance in meters
+      water_level: -0.6,
+      tree_density: 0.60,
+      vegetation_biome: 'coastal', // 'alpine' | 'coastal' | 'temperate'
+      urban_shadows: false
     };
 
     // Building Parameters
@@ -81,7 +89,7 @@ export class SpatialViewport {
     // 1. Scene
     this.scene = new THREE.Scene();
     this.scene.background = new THREE.Color(0x0a0e17);
-    this.scene.fog = new THREE.FogExp2(0x0a0e17, 0.008);
+    this.scene.fog = new THREE.FogExp2(0x0a0e17, 0.007);
 
     // 2. Camera
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1500);
@@ -146,21 +154,21 @@ export class SpatialViewport {
     this.hemiLight.position.set(0, 80, 0);
     this.scene.add(this.hemiLight);
 
-    this.sunLight = new THREE.DirectionalLight(0xfff5e4, 2.0);
+    this.sunLight = new THREE.DirectionalLight(0xfff5e4, 2.1);
     this.sunLight.castShadow = true;
     this.sunLight.shadow.mapSize.width = 2048;
     this.sunLight.shadow.mapSize.height = 2048;
     this.sunLight.shadow.camera.near = 0.5;
-    this.sunLight.shadow.camera.far = 250;
-    this.sunLight.shadow.camera.left = -50;
-    this.sunLight.shadow.camera.right = 50;
-    this.sunLight.shadow.camera.top = 50;
-    this.sunLight.shadow.camera.bottom = -50;
+    this.sunLight.shadow.camera.far = 300;
+    this.sunLight.shadow.camera.left = -60;
+    this.sunLight.shadow.camera.right = 60;
+    this.sunLight.shadow.camera.top = 60;
+    this.sunLight.shadow.camera.bottom = -60;
     this.sunLight.shadow.bias = -0.0004;
     this.scene.add(this.sunLight);
 
     const fillLight = new THREE.DirectionalLight(0x60a5fa, 0.45);
-    fillLight.position.set(-40, 25, -40);
+    fillLight.position.set(-45, 25, -45);
     this.scene.add(fillLight);
 
     this.updateSunPosition();
@@ -169,7 +177,7 @@ export class SpatialViewport {
   updateSunPosition() {
     const azimuthRad = THREE.MathUtils.degToRad(this.params.orientation_azimuth + 180);
     const altitudeRad = THREE.MathUtils.degToRad(42);
-    const radius = 60;
+    const radius = 70;
 
     const x = radius * Math.sin(azimuthRad) * Math.cos(altitudeRad);
     const y = radius * Math.sin(altitudeRad);
@@ -179,15 +187,46 @@ export class SpatialViewport {
   }
 
   /**
-   * Builds the natural site context based on the active preset:
-   * - Alpine Mountain Ridge (Displaced terrain, snow peaks, rocky slope)
-   * - Lakefront / Coastal Shoreline (Water plane with reflections, sandy shore)
-   * - Forested Canopy (Dense tree belts, mossy grass, biophilic context)
-   * - Urban Canyon (Surrounding context towers)
-   * - Studio Plinth (Clean engineering floor)
+   * Applies rich geographic site data from map selection or presets
+   */
+  applySiteData(site) {
+    this.sitePreset = site.preset || 'custom';
+    this.envParams.site_preset = this.sitePreset;
+    if (site.mountainHeight !== undefined) this.envParams.mountain_height = site.mountainHeight;
+    if (site.slope !== undefined) this.envParams.terrain_slope = site.slope;
+    if (site.slopeDir !== undefined) this.envParams.slope_direction = site.slopeDir;
+    if (site.ruggedness !== undefined) this.envParams.ruggedness = Math.min(1.0, site.ruggedness / 300);
+    if (site.waterType !== undefined) this.envParams.water_type = site.waterType;
+    if (site.waterProximity !== undefined) this.envParams.water_proximity = site.waterProximity;
+    if (site.treeDensity !== undefined) this.envParams.tree_density = site.treeDensity;
+    if (site.biome !== undefined) this.envParams.vegetation_biome = site.biome;
+    if (site.urbanContext !== undefined) this.envParams.urban_shadows = site.urbanContext;
+
+    this.buildEnvironment();
+    this.rebuildArchitecture();
+  }
+
+  /**
+   * Updates individual custom site parameters from sliders
+   */
+  updateCustomSiteParams(partial) {
+    Object.assign(this.envParams, partial);
+    this.buildEnvironment();
+    this.rebuildArchitecture();
+  }
+
+  /**
+   * Builds the natural site context & 3D topography:
+   * - Alpine Mountain Ridge (Sharp crags, snow caps, rocky slopes)
+   * - Ocean Coastline & Bluff (Coastal cliffs, beach line, rolling ocean water)
+   * - Inland Lakefront (Freshwater basin, cupping hills, sandy rim)
+   * - Forest Canopy (Rolling wooded knolls, rich moss)
+   * - Dense Urban Canyon (Shadow-casting high-rises)
+   * - Studio Plinth (Minimal engineering floor)
+   * - Custom Site (Fully parameterized topography & water)
    */
   buildEnvironment() {
-    // Clear previous environment meshes
+    // 1. Clear previous environment meshes
     if (this.terrainMesh) {
       this.terrainMesh.geometry.dispose();
       this.environmentGroup.remove(this.terrainMesh);
@@ -198,6 +237,17 @@ export class SpatialViewport {
       this.environmentGroup.remove(this.waterMesh);
       this.waterMesh = null;
     }
+    if (this.foamMesh) {
+      this.foamMesh.geometry.dispose();
+      this.environmentGroup.remove(this.foamMesh);
+      this.foamMesh = null;
+    }
+    if (this.foundationPlinth) {
+      this.foundationPlinth.geometry.dispose();
+      this.environmentGroup.remove(this.foundationPlinth);
+      this.foundationPlinth = null;
+    }
+
     while (this.treesGroup.children.length > 0) {
       const t = this.treesGroup.children.pop();
       if (t.geometry) t.geometry.dispose();
@@ -214,58 +264,110 @@ export class SpatialViewport {
       return;
     }
 
-    // 1. Topography / Terrain Mesh
-    const terrainSize = 120;
-    const segments = 64;
+    // Parameters
+    const mHeight = this.envParams.mountain_height;
+    const slope = this.envParams.terrain_slope;
+    const slopeDir = this.envParams.slope_direction;
+    const rugged = this.envParams.ruggedness;
+    const waterType = this.envParams.water_type;
+    const waterProx = this.envParams.water_proximity;
+    const biome = this.envParams.vegetation_biome;
+
+    // 2. High-Resolution 3D Topography Mesh
+    const terrainSize = 150;
+    const segments = 80;
     const terrainGeo = new THREE.PlaneGeometry(terrainSize, terrainSize, segments, segments);
     terrainGeo.rotateX(-Math.PI / 2);
 
     const pos = terrainGeo.attributes.position;
     const colors = new Float32Array(pos.count * 3);
 
+    // Directional slope vector
+    let dirX = 0, dirZ = 0;
+    if (slopeDir === 'north') dirZ = 1;
+    else if (slopeDir === 'south') dirZ = -1;
+    else if (slopeDir === 'east') dirX = 1;
+    else if (slopeDir === 'west') dirX = -1;
+
     for (let i = 0; i < pos.count; i++) {
       const x = pos.getX(i);
       const z = pos.getZ(i);
 
+      // Keep building parcel flat around (0,0) with smoothstep transition
+      const distFromCenter = Math.sqrt(x * x + z * z);
+      const parcelFlatten = THREE.MathUtils.smoothstep(distFromCenter, 13.0, 26.0);
+
       let elevation = 0;
 
-      // Keep building parcel relatively flat around (0,0)
-      const distFromCenter = Math.sqrt(x * x + z * z);
-      const parcelFlatten = Math.min(1.0, Math.max(0.0, (distFromCenter - 14) / 25));
-
-      if (preset === 'mountain') {
-        // Alpine mountain ridge rising to the North and East
-        const mountainRidge = Math.sin(x * 0.05 + 1.2) * Math.cos(z * 0.04) * 18.0;
-        const slope = (z * 0.25) + (x * 0.15);
-        elevation = (mountainRidge + slope + 8) * parcelFlatten;
-      } else if (preset === 'coastal') {
-        // Gentle slope towards water body on South (-Z)
-        const coastalSlope = Math.max(-2.5, (z + 12) * 0.12);
-        elevation = coastalSlope * parcelFlatten;
+      if (preset === 'mountain' || (preset === 'custom' && mHeight > 10)) {
+        // Alpine mountain ridge with multi-octave crags
+        const ridge1 = Math.abs(Math.sin(x * 0.045 + 1.2) * Math.cos(z * 0.038)) * mHeight;
+        const crags = Math.sin(x * 0.11) * Math.cos(z * 0.12) * (mHeight * 0.28 * rugged);
+        const slopeGrad = (z * dirZ + x * dirX) * (slope * 0.035);
+        elevation = (ridge1 + crags + slopeGrad) * parcelFlatten;
+      } else if (preset === 'ocean' || waterType === 'ocean') {
+        // Coastal bluff perched above ocean
+        const bluffHeight = Math.max(4.0, slope * 0.6);
+        const coastalIncline = (z * 0.18 + x * 0.06);
+        // Drops down towards South (-Z) into sea
+        const shoreDrop = Math.max(-1.8, Math.min(bluffHeight, (z + waterProx) * 0.22));
+        const wavesShore = Math.sin(x * 0.08) * 0.8;
+        elevation = (shoreDrop + wavesShore) * parcelFlatten;
+      } else if (preset === 'lake' || waterType === 'lake') {
+        // Lake basin cupping the water with surrounding knolls
+        const distFromLake = Math.sqrt(x * x + Math.pow(z + waterProx, 2));
+        const lakeShore = Math.min(12.0, Math.max(-1.2, (distFromLake - 18) * 0.22));
+        const undulation = Math.sin(x * 0.06) * Math.cos(z * 0.06) * (mHeight * 0.4);
+        elevation = (lakeShore + undulation) * parcelFlatten;
       } else if (preset === 'forest') {
-        // Gentle rolling terrain
-        const undulation = Math.sin(x * 0.1) * Math.cos(z * 0.1) * 3.5;
+        // Rolling forest terrain
+        const undulation = Math.sin(x * 0.08) * Math.cos(z * 0.07) * 4.2 + (z * dirZ * 0.1);
         elevation = undulation * parcelFlatten;
       } else if (preset === 'urban') {
         elevation = 0;
+      } else {
+        // Custom generic slope
+        elevation = ((z * dirZ + x * dirX) * (slope * 0.03)) * parcelFlatten;
       }
 
-      pos.setY(i, elevation - 0.2);
+      pos.setY(i, elevation - 0.25);
 
-      // Color mapping based on elevation & slope
-      let r = 0.12, g = 0.20, b = 0.14; // Default grass green
-      if (preset === 'mountain' && elevation > 14.0) {
-        // Rock & snow
-        r = 0.75; g = 0.78; b = 0.85;
-      } else if (preset === 'mountain' && elevation > 7.0) {
-        // Alpine rock slate
-        r = 0.32; g = 0.35; b = 0.40;
-      } else if (preset === 'coastal' && elevation < 0.2) {
-        // Coastal sandy shoreline
-        r = 0.65; g = 0.60; b = 0.45;
+      // Vertex color painting based on elevation, slope, and biome
+      let r = 0.18, g = 0.28, b = 0.18; // Default grass
+
+      if (preset === 'mountain' || (preset === 'custom' && mHeight > 14)) {
+        if (elevation > 16.0) {
+          // Glacier snow caps
+          r = 0.88; g = 0.92; b = 0.98;
+        } else if (elevation > 8.0) {
+          // Alpine slate / granite rock
+          r = 0.38; g = 0.42; b = 0.46;
+        } else {
+          // Alpine meadow grass
+          r = 0.20; g = 0.35; b = 0.22;
+        }
+      } else if (preset === 'ocean' || waterType === 'ocean') {
+        if (elevation < 0.2) {
+          // Wet shoreline sand
+          r = 0.72; g = 0.62; b = 0.44;
+        } else if (elevation < 2.0) {
+          // Coastal sand dunes
+          r = 0.82; g = 0.74; b = 0.55;
+        } else {
+          // Coastal bluff cliff & scrub
+          r = 0.30; g = 0.40; b = 0.25;
+        }
+      } else if (preset === 'lake' || waterType === 'lake') {
+        if (elevation < 0.3) {
+          // Lake pebble shoreline
+          r = 0.55; g = 0.55; b = 0.52;
+        } else {
+          // Freshwater riparian grass
+          r = 0.16; g = 0.34; b = 0.20;
+        }
       } else if (preset === 'forest') {
-        // Rich deep forest soil & moss
-        r = 0.08; g = 0.24; b = 0.12;
+        // Deep forest loam & moss
+        r = 0.11; g = 0.26; b = 0.13;
       }
 
       colors[i * 3] = r;
@@ -279,7 +381,7 @@ export class SpatialViewport {
     const terrainMat = new THREE.MeshStandardMaterial({
       vertexColors: true,
       roughness: 0.85,
-      metalness: 0.05,
+      metalness: 0.08,
       flatShading: true
     });
 
@@ -287,33 +389,76 @@ export class SpatialViewport {
     this.terrainMesh.receiveShadow = true;
     this.environmentGroup.add(this.terrainMesh);
 
-    // 2. Water Feature (Lakes / Sea / Coastal Shoreline)
-    if (preset === 'coastal' || this.envParams.has_water) {
-      const waterSize = 140;
-      const waterGeo = new THREE.PlaneGeometry(waterSize, 60, 32, 16);
-      waterGeo.rotateX(-Math.PI / 2);
+    // 3. Terraced Foundation Plinth (for sloped sites)
+    const plinthGeo = new THREE.BoxGeometry(this.params.room_width + 3.0, 0.6, this.params.room_depth + 3.0);
+    const plinthMat = new THREE.MeshStandardMaterial({
+      color: 0x1f2937,
+      roughness: 0.85,
+      metalness: 0.15
+    });
+    this.foundationPlinth = new THREE.Mesh(plinthGeo, plinthMat);
+    this.foundationPlinth.position.set(0, -0.15, 0);
+    this.foundationPlinth.receiveShadow = true;
+    this.foundationPlinth.castShadow = true;
+    this.environmentGroup.add(this.foundationPlinth);
 
-      const waterMat = new THREE.MeshStandardMaterial({
-        color: 0x1e3a8a,
-        roughness: 0.1,
-        metalness: 0.85,
+    // 4. Dynamic Water Bodies (Ocean Coastline vs Inland Lake)
+    if (waterType === 'ocean' || preset === 'ocean') {
+      const oceanWidth = 260;
+      const oceanDepth = 120;
+      const oceanGeo = new THREE.PlaneGeometry(oceanWidth, oceanDepth, 48, 24);
+      oceanGeo.rotateX(-Math.PI / 2);
+
+      const oceanMat = new THREE.MeshStandardMaterial({
+        color: 0x0284c7, // Vibrant coastal cyan/navy
+        roughness: 0.08,
+        metalness: 0.90,
+        transparent: true,
+        opacity: 0.90
+      });
+
+      this.waterMesh = new THREE.Mesh(oceanGeo, oceanMat);
+      this.waterMesh.position.set(0, -0.45, -(waterProx + oceanDepth / 2));
+      this.waterMesh.receiveShadow = true;
+      this.environmentGroup.add(this.waterMesh);
+
+      // Surf foam line along the beach
+      const foamGeo = new THREE.PlaneGeometry(oceanWidth, 2.5, 32, 1);
+      foamGeo.rotateX(-Math.PI / 2);
+      const foamMat = new THREE.MeshBasicMaterial({
+        color: 0xf8fafc,
+        transparent: true,
+        opacity: 0.65
+      });
+      this.foamMesh = new THREE.Mesh(foamGeo, foamMat);
+      this.foamMesh.position.set(0, -0.42, -waterProx);
+      this.environmentGroup.add(this.foamMesh);
+
+    } else if (waterType === 'lake' || preset === 'lake') {
+      const lakeGeo = new THREE.CylinderGeometry(36, 38, 0.5, 48);
+      const lakeMat = new THREE.MeshStandardMaterial({
+        color: 0x0369a1, // Tranquil alpine lake sapphire
+        roughness: 0.12,
+        metalness: 0.80,
         transparent: true,
         opacity: 0.88
       });
 
-      this.waterMesh = new THREE.Mesh(waterGeo, waterMat);
-      this.waterMesh.position.set(0, -0.4, -45); // South water body
+      this.waterMesh = new THREE.Mesh(lakeGeo, lakeMat);
+      this.waterMesh.position.set(0, -0.45, -waterProx);
       this.waterMesh.receiveShadow = true;
       this.environmentGroup.add(this.waterMesh);
     }
 
-    // 3. Tree Canopies & Vegetation
-    if (preset === 'forest' || preset === 'coastal' || preset === 'mountain') {
-      const count = preset === 'forest' ? 36 : preset === 'coastal' ? 18 : 12;
-      this.spawnProceduralTrees(count);
+    // 5. Adaptive Vegetation Generation by Biome
+    const treeDensity = this.envParams.tree_density;
+    if (treeDensity > 0.05 && preset !== 'urban') {
+      const baseCount = preset === 'forest' ? 42 : preset === 'mountain' ? 18 : 24;
+      const treeCount = Math.round(baseCount * (treeDensity / 0.65));
+      this.spawnAdaptiveTrees(treeCount, biome);
     }
 
-    // 4. Urban Context Buildings
+    // 6. Urban Context Buildings
     if (preset === 'urban' || this.envParams.urban_shadows) {
       this.spawnUrbanBuildings();
     }
@@ -337,70 +482,121 @@ export class SpatialViewport {
   }
 
   /**
-   * Spawns realistic 3D tree canopies (foliage + trunks) around the parcel.
+   * Spawns realistic 3D tree canopies tailored to the active biome:
+   * - Alpine: Tall slender spruce & pine conifers with tapered needle tiers
+   * - Coastal: Umbrella pines, Monterey cypress, wind-swept crowns
+   * - Temperate: Mixed deciduous rounded canopies
    */
-  spawnProceduralTrees(numTrees) {
-    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
-    const foliageColors = [0x15803d, 0x166534, 0x22c55e, 0x047857, 0x84cc16];
+  spawnAdaptiveTrees(numTrees, biome) {
+    const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422006, roughness: 0.9 });
 
     for (let i = 0; i < numTrees; i++) {
-      // Position around building perimeter (avoiding building footprint)
       const angle = Math.random() * Math.PI * 2;
-      const dist = 14.0 + Math.random() * 32.0;
+      const dist = 14.5 + Math.random() * 34.0;
       const x = Math.cos(angle) * dist;
       const z = Math.sin(angle) * dist;
 
-      // Don't place deep in South water if coastal
-      if (this.sitePreset === 'coastal' && z < -18) continue;
+      // Don't place inside ocean or lake water
+      if ((this.sitePreset === 'ocean' || this.envParams.water_type === 'ocean') && z < -this.envParams.water_proximity) {
+        continue;
+      }
+      if ((this.sitePreset === 'lake' || this.envParams.water_type === 'lake') && Math.sqrt(x * x + Math.pow(z + this.envParams.water_proximity, 2)) < 30) {
+        continue;
+      }
 
-      const scale = 0.7 + Math.random() * 0.6;
-      this.createTree(x, z, scale, trunkMat, foliageColors);
+      const scale = 0.75 + Math.random() * 0.65;
+      this.createBiomeTree(x, z, scale, biome, trunkMat);
     }
 
     // Re-add custom user-planted trees
     this.customTrees.forEach(t => {
-      this.createTree(t.x, t.z, t.scale || 1.0, trunkMat, foliageColors);
+      this.createBiomeTree(t.x, t.z, t.scale || 1.0, biome, trunkMat);
     });
   }
 
-  createTree(x, z, scale, trunkMat, foliageColors) {
+  createBiomeTree(x, z, scale, biome, trunkMat) {
     const treeGroup = new THREE.Group();
 
-    // Trunk
-    const trunkHeight = 2.4 * scale;
-    const trunkGeo = new THREE.CylinderGeometry(0.18 * scale, 0.28 * scale, trunkHeight, 8);
-    const trunkMesh = new THREE.Mesh(trunkGeo, trunkMat);
-    trunkMesh.position.y = trunkHeight / 2;
-    trunkMesh.castShadow = true;
-    trunkMesh.receiveShadow = true;
-    treeGroup.add(trunkMesh);
+    if (biome === 'alpine') {
+      // Alpine Conifer (Tall slender trunk, 3 tapered cone needle tiers)
+      const trunkH = 2.8 * scale;
+      const trunkGeo = new THREE.CylinderGeometry(0.14 * scale, 0.22 * scale, trunkH, 8);
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = trunkH / 2;
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
 
-    // Foliage Canopy (Double tiered cone/sphere for natural canopy look)
-    const foliageColor = foliageColors[Math.floor(Math.random() * foliageColors.length)];
-    const foliageMat = new THREE.MeshStandardMaterial({
-      color: foliageColor,
-      roughness: 0.75,
-      metalness: 0.1,
-      flatShading: true
-    });
+      const pineColors = [0x14532d, 0x166534, 0x0f3d21, 0x1b4332];
+      const pineColor = pineColors[Math.floor(Math.random() * pineColors.length)];
+      const foliageMat = new THREE.MeshStandardMaterial({ color: pineColor, roughness: 0.78, flatShading: true });
 
-    const canopyRadius = (1.8 + Math.random() * 0.8) * scale;
-    const canopyHeight = 4.0 * scale;
-    const canopyGeo = new THREE.ConeGeometry(canopyRadius, canopyHeight, 8);
-    const canopyMesh = new THREE.Mesh(canopyGeo, foliageMat);
-    canopyMesh.position.y = trunkHeight + canopyHeight / 2 - 0.4;
-    canopyMesh.castShadow = true;
-    canopyMesh.receiveShadow = true;
-    treeGroup.add(canopyMesh);
+      // 3 Conical Tiers
+      const tiers = [
+        { r: 2.2 * scale, h: 3.2 * scale, y: trunkH + 0.6 },
+        { r: 1.7 * scale, h: 2.8 * scale, y: trunkH + 2.0 },
+        { r: 1.1 * scale, h: 2.2 * scale, y: trunkH + 3.2 }
+      ];
 
-    // Second lower foliage tier
-    const tierGeo = new THREE.ConeGeometry(canopyRadius * 1.25, canopyHeight * 0.65, 8);
-    const tierMesh = new THREE.Mesh(tierGeo, foliageMat);
-    tierMesh.position.y = trunkHeight + canopyHeight * 0.25;
-    tierMesh.castShadow = true;
-    treeGroup.add(tierMesh);
+      tiers.forEach(t => {
+        const geo = new THREE.ConeGeometry(t.r, t.h, 8);
+        const mesh = new THREE.Mesh(geo, foliageMat);
+        mesh.position.y = t.y;
+        mesh.castShadow = true;
+        mesh.receiveShadow = true;
+        treeGroup.add(mesh);
+      });
 
-    // Get terrain height at (x, z)
+    } else if (biome === 'coastal') {
+      // Coastal Cypress / Umbrella Pine (Twisted trunk, spread flat umbrella canopy)
+      const trunkH = 2.2 * scale;
+      const trunkGeo = new THREE.CylinderGeometry(0.18 * scale, 0.26 * scale, trunkH, 8);
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = trunkH / 2;
+      trunk.rotation.z = (Math.random() - 0.5) * 0.15; // Natural coastal wind lean
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
+
+      const coastalColors = [0x166534, 0x365314, 0x15803d, 0x4d7c0f];
+      const foliageMat = new THREE.MeshStandardMaterial({
+        color: coastalColors[Math.floor(Math.random() * coastalColors.length)],
+        roughness: 0.72,
+        flatShading: true
+      });
+
+      // Wide umbrella dome
+      const domeGeo = new THREE.SphereGeometry(2.4 * scale, 8, 6);
+      domeGeo.scale(1.3, 0.55, 1.3);
+      const dome = new THREE.Mesh(domeGeo, foliageMat);
+      dome.position.y = trunkH + 0.8 * scale;
+      dome.castShadow = true;
+      dome.receiveShadow = true;
+      treeGroup.add(dome);
+
+    } else {
+      // Temperate Mixed (Standard double cone canopy)
+      const trunkH = 2.4 * scale;
+      const trunkGeo = new THREE.CylinderGeometry(0.18 * scale, 0.26 * scale, trunkH, 8);
+      const trunk = new THREE.Mesh(trunkGeo, trunkMat);
+      trunk.position.y = trunkH / 2;
+      trunk.castShadow = true;
+      treeGroup.add(trunk);
+
+      const deciduousColors = [0x15803d, 0x166534, 0x22c55e, 0x84cc16];
+      const foliageMat = new THREE.MeshStandardMaterial({
+        color: deciduousColors[Math.floor(Math.random() * deciduousColors.length)],
+        roughness: 0.75,
+        flatShading: true
+      });
+
+      const canopyGeo = new THREE.ConeGeometry(2.0 * scale, 4.0 * scale, 8);
+      const canopy = new THREE.Mesh(canopyGeo, foliageMat);
+      canopy.position.y = trunkH + 1.8 * scale;
+      canopy.castShadow = true;
+      canopy.receiveShadow = true;
+      treeGroup.add(canopy);
+    }
+
+    // Anchor tree to topography height
     const yPos = this.getTerrainHeightAt(x, z);
     treeGroup.position.set(x, yPos, z);
 
@@ -409,21 +605,23 @@ export class SpatialViewport {
 
   getTerrainHeightAt(x, z) {
     if (!this.terrainMesh || this.sitePreset === 'studio') return 0;
-    // Approximation matching terrain generation function
     const dist = Math.sqrt(x * x + z * z);
-    const flatten = Math.min(1.0, Math.max(0.0, (dist - 14) / 25));
-    if (this.sitePreset === 'mountain') {
-      const mountainRidge = Math.sin(x * 0.05 + 1.2) * Math.cos(z * 0.04) * 18.0;
-      return (mountainRidge + (z * 0.25) + (x * 0.15) + 8) * flatten - 0.2;
-    } else if (this.sitePreset === 'coastal') {
-      return Math.max(-2.5, (z + 12) * 0.12) * flatten - 0.2;
+    const flatten = THREE.MathUtils.smoothstep(dist, 13.0, 26.0);
+
+    const mHeight = this.envParams.mountain_height;
+    const slope = this.envParams.terrain_slope;
+    const preset = this.sitePreset;
+
+    if (preset === 'mountain' || (preset === 'custom' && mHeight > 10)) {
+      const ridge1 = Math.abs(Math.sin(x * 0.045 + 1.2) * Math.cos(z * 0.038)) * mHeight;
+      return (ridge1 + (z * 0.25)) * flatten - 0.25;
+    } else if (preset === 'ocean' || this.envParams.water_type === 'ocean') {
+      const shoreDrop = Math.max(-1.8, Math.min(slope * 0.6, (z + this.envParams.water_proximity) * 0.22));
+      return shoreDrop * flatten - 0.25;
     }
     return 0;
   }
 
-  /**
-   * Spawns surrounding urban towers casting real urban shadows onto the parcel.
-   */
   spawnUrbanBuildings() {
     const buildingMat = new THREE.MeshStandardMaterial({
       color: 0x334155,
@@ -432,10 +630,10 @@ export class SpatialViewport {
     });
 
     const contextBuildings = [
-      { x: -28, z: -15, w: 18, d: 22, h: 28 },
-      { x: 26, z: -18, w: 16, d: 20, h: 24 },
-      { x: -30, z: 22, w: 20, d: 18, h: 35 },
-      { x: 28, z: 24, w: 22, d: 24, h: 32 }
+      { x: -30, z: -18, w: 18, d: 22, h: 32 },
+      { x: 28, z: -20, w: 16, d: 20, h: 26 },
+      { x: -32, z: 24, w: 20, d: 18, h: 38 },
+      { x: 30, z: 26, w: 22, d: 24, h: 34 }
     ];
 
     contextBuildings.forEach(b => {
@@ -445,7 +643,6 @@ export class SpatialViewport {
       mesh.castShadow = true;
       mesh.receiveShadow = true;
 
-      // Subtle edge line
       const edges = new THREE.EdgesGeometry(geo);
       const line = new THREE.LineSegments(edges, new THREE.LineBasicMaterial({ color: 0x64748b, transparent: true, opacity: 0.4 }));
       mesh.add(line);
@@ -457,6 +654,31 @@ export class SpatialViewport {
   setSitePreset(presetKey) {
     this.sitePreset = presetKey;
     this.envParams.site_preset = presetKey;
+
+    if (presetKey === 'mountain') {
+      this.envParams.mountain_height = 36.0;
+      this.envParams.terrain_slope = 24.0;
+      this.envParams.water_type = 'none';
+      this.envParams.vegetation_biome = 'alpine';
+    } else if (presetKey === 'ocean') {
+      this.envParams.mountain_height = 14.0;
+      this.envParams.terrain_slope = 16.0;
+      this.envParams.water_type = 'ocean';
+      this.envParams.water_proximity = 20.0;
+      this.envParams.vegetation_biome = 'coastal';
+    } else if (presetKey === 'lake') {
+      this.envParams.mountain_height = 14.0;
+      this.envParams.terrain_slope = 8.0;
+      this.envParams.water_type = 'lake';
+      this.envParams.water_proximity = 18.0;
+      this.envParams.vegetation_biome = 'temperate';
+    } else if (presetKey === 'forest') {
+      this.envParams.mountain_height = 16.0;
+      this.envParams.terrain_slope = 10.0;
+      this.envParams.water_type = 'none';
+      this.envParams.vegetation_biome = 'temperate';
+    }
+
     this.buildEnvironment();
     this.rebuildArchitecture();
   }
@@ -482,20 +704,15 @@ export class SpatialViewport {
         return;
       }
       this.customTrees.push({ x: p.x, z: p.z, scale: 0.9 + Math.random() * 0.4 });
-      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x4a2e18, roughness: 0.9 });
-      const foliageColors = [0x15803d, 0x166534, 0x22c55e, 0x047857];
-      this.createTree(p.x, p.z, 1.0, trunkMat, foliageColors);
+      const trunkMat = new THREE.MeshStandardMaterial({ color: 0x422006, roughness: 0.9 });
+      this.createBiomeTree(p.x, p.z, 1.0, this.envParams.vegetation_biome, trunkMat);
 
-      // Dispatch event for UI
       if (window.dispatchEvent) {
         window.dispatchEvent(new CustomEvent('treePlanted', { detail: { count: this.customTrees.length } }));
       }
     }
   }
 
-  /**
-   * Rebuilds the parametric building geometry based on current parameters.
-   */
   rebuildArchitecture() {
     while (this.buildingGroup.children.length > 0) {
       const obj = this.buildingGroup.children.pop();
@@ -577,7 +794,6 @@ export class SpatialViewport {
 
     // 5. Opaque Walls
     const wallThick = 0.28;
-    // North Wall (+Z)
     const northWallGeo = new THREE.BoxGeometry(room_width, height, wallThick);
     const northWall = new THREE.Mesh(northWallGeo, concreteMat);
     northWall.position.set(0, height / 2 + slabThickness, room_depth / 2);
@@ -585,7 +801,6 @@ export class SpatialViewport {
     northWall.receiveShadow = true;
     this.buildingGroup.add(northWall);
 
-    // Left Wall (-X)
     const sideWallGeo = new THREE.BoxGeometry(wallThick, height, room_depth);
     const leftWall = new THREE.Mesh(sideWallGeo, concreteMat);
     leftWall.position.set(-room_width / 2, height / 2 + slabThickness, 0);
@@ -593,48 +808,45 @@ export class SpatialViewport {
     leftWall.receiveShadow = true;
     this.buildingGroup.add(leftWall);
 
-    // Right Wall (+X)
     const rightWall = new THREE.Mesh(sideWallGeo, concreteMat);
     rightWall.position.set(room_width / 2, height / 2 + slabThickness, 0);
     rightWall.castShadow = true;
     rightWall.receiveShadow = true;
     this.buildingGroup.add(rightWall);
 
-    // 6. South Facade Window Glazing (Parametric WWR)
-    const glassW = room_width * Math.sqrt(wwr);
-    const glassH = height * Math.sqrt(wwr);
+    // 6. South Glazed Facade & Parametric Louvers
+    const glassW = room_width - 0.4;
+    const glassH = height * Math.min(0.95, Math.max(0.2, wwr));
     const glassGeo = new THREE.BoxGeometry(glassW, glassH, 0.08);
     const glassMesh = new THREE.Mesh(glassGeo, glassMat);
     glassMesh.position.set(0, slabThickness + glassH / 2 + (height - glassH) / 2, -room_depth / 2);
     this.buildingGroup.add(glassMesh);
 
-    // Spandrel wall
     const sillHeight = (height - glassH) / 2;
     if (sillHeight > 0.05) {
       const sillGeo = new THREE.BoxGeometry(room_width, sillHeight, wallThick);
       const sillMesh = new THREE.Mesh(sillGeo, concreteMat);
       sillMesh.position.set(0, slabThickness + sillHeight / 2, -room_depth / 2);
+      sillMesh.castShadow = true;
+      sillMesh.receiveShadow = true;
       this.buildingGroup.add(sillMesh);
-
-      const headerGeo = new THREE.BoxGeometry(room_width, sillHeight, wallThick);
-      const headerMesh = new THREE.Mesh(headerGeo, concreteMat);
-      headerMesh.position.set(0, slabThickness + height - sillHeight / 2, -room_depth / 2);
-      this.buildingGroup.add(headerMesh);
     }
 
     // 7. Parametric Exterior Shading Louvers
-    const numLouvers = 8;
-    const louverSpacing = glassH / numLouvers;
-    const louverRad = THREE.MathUtils.degToRad(louver_angle);
-    const louverDepth = Math.max(0.6, overhang_depth * 0.85);
+    const numLouvers = 7;
+    const louverSpacing = glassH / (numLouvers + 1);
+    const louverDepth = 0.65;
+    const louverThickness = 0.04;
+    const louverAngleRad = THREE.MathUtils.degToRad(louver_angle);
 
-    for (let i = 0; i < numLouvers; i++) {
-      const louverGeo = new THREE.BoxGeometry(glassW + 0.6, 0.05, louverDepth);
+    for (let i = 1; i <= numLouvers; i++) {
+      const louverGeo = new THREE.BoxGeometry(glassW, louverThickness, louverDepth);
       const louverMesh = new THREE.Mesh(louverGeo, louverMat);
-      const yPos = slabThickness + (height - glassH) / 2 + i * louverSpacing + louverSpacing / 2;
-      louverMesh.position.set(0, yPos, -room_depth / 2 - louverDepth / 2 - 0.1);
-      louverMesh.rotation.x = louverRad;
+      const yLouver = slabThickness + sillHeight + (i * louverSpacing);
+      louverMesh.position.set(0, yLouver, -room_depth / 2 - (louverDepth / 2) - 0.08);
+      louverMesh.rotation.x = louverAngleRad;
       louverMesh.castShadow = true;
+      louverMesh.receiveShadow = true;
       this.buildingGroup.add(louverMesh);
     }
   }
@@ -642,14 +854,14 @@ export class SpatialViewport {
   createHeatmapSurface(width, depth, yLevel, clipPlanes) {
     const segX = 36;
     const segZ = 36;
-    const geo = new THREE.PlaneGeometry(width - 0.2, depth - 0.2, segX, segZ);
+    const geo = new THREE.PlaneGeometry(width - 0.4, depth - 0.4, segX, segZ);
     geo.rotateX(-Math.PI / 2);
 
     const count = geo.attributes.position.count;
     const colors = new Float32Array(count * 3);
     const positions = geo.attributes.position;
 
-    const { wwr, louver_angle, overhang_depth, room_depth } = this.params;
+    const { wwr, room_depth, louver_angle, overhang_depth } = this.params;
 
     for (let i = 0; i < count; i++) {
       const x = positions.getX(i);
@@ -672,7 +884,6 @@ export class SpatialViewport {
         const spanDist = Math.sin((normDist) * Math.PI) * Math.cos((x / (width / 2)) * (Math.PI / 2.5));
         scalar = Math.max(0.1, Math.min(1.0, 0.15 + spanDist * 0.8));
       } else if (this.activeMetric === 'biophilic_view') {
-        // Biophilic views highest near facade and corners looking at trees/water
         scalar = Math.max(0.1, Math.min(0.95, (1.0 - normDist * 0.8) * (0.8 + normX * 0.2)));
       } else {
         scalar = 0.35 + (normX * 0.3) + (1.0 - normDist) * 0.35;
@@ -686,17 +897,14 @@ export class SpatialViewport {
 
     geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
 
-    const mat = new THREE.MeshStandardMaterial({
+    const mat = new THREE.MeshBasicMaterial({
       vertexColors: true,
-      roughness: 0.35,
-      metalness: 0.1,
       clippingPlanes: clipPlanes,
-      wireframe: this.showWireframe
+      side: THREE.DoubleSide
     });
 
     this.heatmapMesh = new THREE.Mesh(geo, mat);
     this.heatmapMesh.position.set(0, yLevel, 0);
-    this.heatmapMesh.receiveShadow = true;
     this.buildingGroup.add(this.heatmapMesh);
   }
 
@@ -707,9 +915,9 @@ export class SpatialViewport {
       const g = Math.max(0, Math.min(1, 0.05 + 1.25 * t - 0.45 * t * t));
       const b = Math.max(0, Math.min(1, 0.55 - 0.5 * t + 0.65 * (1 - t) * (1 - t)));
       return [r, g, b];
-    } else if (mapType === 'plasma') {
-      const r = Math.max(0, Math.min(1, 0.05 + 1.35 * t - 0.4 * t * t));
-      const g = Math.max(0, Math.min(1, 0.02 + 0.6 * t + 0.38 * t * t));
+    } else if (mapType === 'coolwarm') {
+      const r = Math.max(0, Math.min(1, 0.2 + 0.8 * t));
+      const g = Math.max(0, Math.min(1, 0.9 * Math.sin(t * Math.PI)));
       const b = Math.max(0, Math.min(1, 0.55 + 0.8 * (1 - t) - 0.4 * (1 - t) * (1 - t)));
       return [r, g, b];
     } else {
@@ -732,18 +940,18 @@ export class SpatialViewport {
     const nodes = [
       { id: 'atrium', label: 'Central Atrium', pos: [0, 2.2, 0], color: 0x38bdf8 },
       { id: 'south_office', label: 'South Daylit Zone', pos: [0, 2.2, -4.5], color: 0x4ade80 },
-      { id: 'east_conf', label: 'East Collab Suite', pos: [4.2, 2.2, 1.5], color: 0xa855f7 },
-      { id: 'west_lab', label: 'West Comput. Lab', pos: [-4.2, 2.2, 1.5], color: 0xf59e0b },
-      { id: 'north_core', label: 'Circulation Core', pos: [0, 2.2, 4.5], color: 0xef4444 }
+      { id: 'north_labs', label: 'North Research Core', pos: [0, 2.2, 4.5], color: 0xa855f7 },
+      { id: 'east_collab', label: 'East Terrace', pos: [4.5, 2.2, 0], color: 0xf59e0b },
+      { id: 'west_services', label: 'West Circulation', pos: [-4.5, 2.2, 0], color: 0xec4899 }
     ];
 
     const edges = [
       ['atrium', 'south_office'],
-      ['atrium', 'east_conf'],
-      ['atrium', 'west_lab'],
-      ['atrium', 'north_core'],
-      ['east_conf', 'north_core'],
-      ['west_lab', 'north_core']
+      ['atrium', 'north_labs'],
+      ['atrium', 'east_collab'],
+      ['atrium', 'west_services'],
+      ['south_office', 'east_collab'],
+      ['south_office', 'west_services']
     ];
 
     const nodeMap = new Map();
@@ -753,8 +961,8 @@ export class SpatialViewport {
       const nodeMat = new THREE.MeshStandardMaterial({
         color: node.color,
         emissive: node.color,
-        emissiveIntensity: 0.6,
-        roughness: 0.2
+        emissiveIntensity: 0.45,
+        roughness: 0.3
       });
       const nodeMesh = new THREE.Mesh(nodeGeo, nodeMat);
       nodeMesh.position.set(node.pos[0], node.pos[1], node.pos[2]);
@@ -783,7 +991,7 @@ export class SpatialViewport {
       const lineMat = new THREE.LineBasicMaterial({
         color: 0x38bdf8,
         transparent: true,
-        opacity: 0.75,
+        opacity: 0.5,
         linewidth: 2
       });
       const line = new THREE.Line(lineGeo, lineMat);
@@ -792,7 +1000,7 @@ export class SpatialViewport {
   }
 
   updateParameters(newParams) {
-    this.params = { ...this.params, ...newParams };
+    Object.assign(this.params, newParams);
     this.updateSunPosition();
     this.rebuildArchitecture();
     this.buildSpatialGraph();
@@ -803,8 +1011,8 @@ export class SpatialViewport {
     this.rebuildArchitecture();
   }
 
-  setColormap(cmapName) {
-    this.colormap = cmapName;
+  setColormap(mapName) {
+    this.colormap = mapName;
     this.rebuildArchitecture();
   }
 
@@ -813,16 +1021,19 @@ export class SpatialViewport {
     this.buildSpatialGraph();
   }
 
-  toggleWireframe(wireframe) {
-    this.showWireframe = wireframe;
+  toggleWireframe(visible) {
+    this.showWireframe = visible;
     this.rebuildArchitecture();
   }
 
   setSectionClipping(enabled, depthRatio = 0.5) {
     this.clippingEnabled = enabled;
     if (enabled) {
-      const zCut = (depthRatio - 0.5) * this.params.room_depth;
-      this.sectionPlane.constant = zCut;
+      const planeZ = (depthRatio - 0.5) * this.params.room_depth;
+      this.sectionPlane.constant = planeZ;
+      this.renderer.localClippingEnabled = true;
+    } else {
+      this.renderer.localClippingEnabled = false;
     }
     this.rebuildArchitecture();
   }
@@ -881,9 +1092,15 @@ export class SpatialViewport {
     requestAnimationFrame(this.animate);
     if (this.controls) this.controls.update();
 
-    // Subtle water surface shimmer animation
+    // Ocean & Lake water surface wave animation
     if (this.waterMesh) {
-      this.waterMesh.rotation.z = Math.sin(Date.now() * 0.0008) * 0.015;
+      const time = Date.now() * 0.001;
+      this.waterMesh.rotation.z = Math.sin(time * 0.6) * 0.012;
+      this.waterMesh.position.y = -0.45 + Math.sin(time * 1.2) * 0.05;
+    }
+
+    if (this.foamMesh) {
+      this.foamMesh.material.opacity = 0.5 + Math.sin(Date.now() * 0.002) * 0.25;
     }
 
     if (this.renderer && this.scene && this.camera) {

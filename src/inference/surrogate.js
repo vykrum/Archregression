@@ -68,17 +68,20 @@ export class SurrogateInferenceEngine {
     const uval = features.glazing_u_val ?? 1.8;
 
     // Environmental site parameters
-    const sitePreset = features.site_preset ?? 'coastal';
-    const treeDensity = features.tree_density ?? 0.65;
-    const hasWater = features.has_water ?? (sitePreset === 'coastal');
+    const sitePreset = features.site_preset ?? 'ocean';
+    const treeDensity = features.tree_density ?? 0.60;
+    const waterType = features.water_type ?? (sitePreset === 'ocean' ? 'ocean' : sitePreset === 'lake' ? 'lake' : 'none');
+    const hasWater = features.has_water ?? (waterType !== 'none');
+    const terrainSlope = features.terrain_slope ?? (sitePreset === 'mountain' ? 24.0 : sitePreset === 'ocean' ? 16.0 : 8.0);
+    const mountainHeight = features.mountain_height ?? (sitePreset === 'mountain' ? 36.0 : 14.0);
 
     // 1. Natural Context Modifiers
     // Tree canopy shading reduces intense facade solar irradiance by 10% - 35%
     const treeShadeFactor = 1.0 - (treeDensity * 0.28);
-    // Water proximity breeze cooling modifier
-    const waterCoolingFactor = hasWater ? 0.88 : 1.0;
+    // Water proximity breeze cooling modifier (Ocean breeze is stronger than inland lake)
+    const waterCoolingFactor = waterType === 'ocean' ? 0.84 : waterType === 'lake' ? 0.89 : 1.0;
     // Mountain ridge blocks low angle morning/evening solar glare
-    const mountainSolarModifier = sitePreset === 'mountain' ? 0.92 : 1.0;
+    const mountainSolarModifier = (sitePreset === 'mountain' || mountainHeight > 25.0) ? 0.90 : 1.0;
 
     // 2. Spatial Daylight Autonomy (% sDA 300/50%)
     const daylightPenetration = (wwr * 118.0) / (1.0 + 0.11 * depth);
@@ -96,23 +99,25 @@ export class SurrogateInferenceEngine {
 
     // 4. Peak Structural Von Mises Stress (MPa)
     const span = Math.max(depth, width);
-    const slopeMultiplier = sitePreset === 'mountain' ? 1.12 : 1.0; // Foundation shear on slopes
+    // Foundation shear and lateral earth pressure increase with terrain slope
+    const slopeMultiplier = 1.0 + (terrainSlope / 160.0);
     const stress = Math.min(120.0, Math.max(8.0, (8.2 + 0.086 * Math.pow(span, 2.08) + (wwr * 7.2)) * slopeMultiplier));
 
     // 5. Embodied Carbon Footprint (kgCO2e/m²)
     const envelopeCarbon = (wwr * 175.0) + (overhang * 32.0) + (louver * 0.52);
-    const structuralCarbon = 162.0 + 0.44 * Math.pow(span, 1.91);
+    const structuralCarbon = 162.0 + 0.44 * Math.pow(span, 1.91) * (1.0 + (terrainSlope / 240.0));
     const carbon = Math.min(650.0, Math.max(160.0, envelopeCarbon + structuralCarbon));
 
     // 6. Microclimate Cooling Drop (ΔT in °C) from Evapotranspiration and Water
     const treeCoolingC = treeDensity * 2.8; // Up to 2.8°C drop from mature canopy
-    const lakeBreezeC = hasWater ? 1.5 : 0.0;
-    const deltaTempC = Math.min(4.8, treeCoolingC + lakeBreezeC);
+    const waterBreezeC = waterType === 'ocean' ? 2.2 : waterType === 'lake' ? 1.4 : 0.0;
+    const deltaTempC = Math.min(5.2, treeCoolingC + waterBreezeC);
 
     // 7. Biophilic & Green View Factor (%)
     // Sightlines to greenery and water from the window aperture
-    const baseGreenView = (treeDensity * 55.0) + (hasWater ? 30.0 : 5.0);
-    const biophilicScore = Math.min(95.0, Math.max(15.0, baseGreenView * Math.sqrt(wwr)));
+    const waterSightline = waterType === 'ocean' ? 38.0 : waterType === 'lake' ? 30.0 : 5.0;
+    const baseGreenView = (treeDensity * 55.0) + waterSightline;
+    const biophilicScore = Math.min(98.0, Math.max(15.0, baseGreenView * Math.sqrt(wwr)));
 
     // 8. Tree Biomass Carbon Sequestration (kgCO2e/yr)
     const treeCarbonOffset = Math.round(treeDensity * 420.0);

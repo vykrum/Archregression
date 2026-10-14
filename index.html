@@ -176,20 +176,82 @@
         <div class="param-group">
           <span class="param-name">Site Environment Typology</span>
           <select class="site-preset-select" id="select-site-preset">
-            <option value="coastal" selected>🌊 Lakefront / Coastal Shoreline</option>
-            <option value="mountain">⛰️ Alpine Mountain Ridge</option>
+            <option value="ocean" selected>🌊 Ocean Shoreline & Coastal Bluff</option>
+            <option value="mountain">⛰️ Alpine Mountain Ridge & Peaks</option>
+            <option value="lake">🏞️ Inland Freshwater Lakefront</option>
             <option value="forest">🌲 Forested Tree Canopy</option>
             <option value="urban">🏢 Dense Urban Canyon</option>
             <option value="studio">🏛️ Minimal Studio Plinth</option>
+            <option value="custom">🛠️ Custom Site (Interactive Sliders)</option>
           </select>
+        </div>
+
+        <!-- Interactive Custom Site & Topography Builder -->
+        <div id="custom-site-panel" style="display: none; background: rgba(15, 23, 42, 0.7); padding: 0.75rem; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.25); margin-top: 0.5rem; margin-bottom: 0.75rem;">
+          <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-cyan); margin-bottom: 0.5rem; display: flex; align-items: center; justify-content: space-between;">
+            <span>🛠️ Custom Topography & Water</span>
+            <span style="font-size: 0.65rem; color: var(--text-muted);">Real-time 3D</span>
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.5rem;">
+            <div class="param-label-row">
+              <span class="param-name" style="font-size: 0.72rem;">Mountain / Peak Height</span>
+              <span class="param-val" id="val-custom-mheight" style="font-size: 0.72rem;">18 m</span>
+            </div>
+            <input type="range" class="slider-input" id="slider-custom-mheight" min="0" max="50" step="2" value="18">
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.5rem;">
+            <div class="param-label-row">
+              <span class="param-name" style="font-size: 0.72rem;">Terrain Slope</span>
+              <span class="param-val" id="val-custom-slope" style="font-size: 0.72rem;">14°</span>
+            </div>
+            <input type="range" class="slider-input" id="slider-custom-slope" min="0" max="35" step="1" value="14">
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.5rem;">
+            <span class="param-name" style="font-size: 0.72rem;">Slope Aspect / Direction</span>
+            <select class="site-preset-select" id="select-custom-slopedir" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">
+              <option value="south" selected>Facing South (towards Sun / Sea)</option>
+              <option value="north">Facing North (Alpine Shade)</option>
+              <option value="east">Facing East</option>
+              <option value="west">Facing West</option>
+            </select>
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.5rem;">
+            <span class="param-name" style="font-size: 0.72rem;">Water Body Feature</span>
+            <select class="site-preset-select" id="select-custom-water" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">
+              <option value="ocean" selected>🌊 Ocean Shoreline (Rolling Waves)</option>
+              <option value="lake">🏞️ Inland Freshwater Lake</option>
+              <option value="none">None (Inland / Dry Ridge)</option>
+            </select>
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.5rem;">
+            <div class="param-label-row">
+              <span class="param-name" style="font-size: 0.72rem;">Shoreline Distance</span>
+              <span class="param-val" id="val-custom-waterprox" style="font-size: 0.72rem;">20 m</span>
+            </div>
+            <input type="range" class="slider-input" id="slider-custom-waterprox" min="12" max="60" step="2" value="20">
+          </div>
+
+          <div class="param-group" style="margin-bottom: 0.35rem;">
+            <span class="param-name" style="font-size: 0.72rem;">Vegetation Biome</span>
+            <select class="site-preset-select" id="select-custom-biome" style="padding: 0.25rem 0.45rem; font-size: 0.72rem;">
+              <option value="coastal" selected>🌴 Coastal Cypress & Pines</option>
+              <option value="alpine">🌲 Alpine Conifers & Firs</option>
+              <option value="temperate">🌳 Temperate Mixed Canopy</option>
+            </select>
+          </div>
         </div>
 
         <div class="param-group">
           <div class="param-label-row">
             <span class="param-name">Tree Canopy Density</span>
-            <span class="param-val" id="val-trees">65%</span>
+            <span class="param-val" id="val-trees">60%</span>
           </div>
-          <input type="range" class="slider-input" id="slider-trees" min="0" max="1" step="0.05" value="0.65">
+          <input type="range" class="slider-input" id="slider-trees" min="0" max="1" step="0.05" value="0.60">
         </div>
 
         <div class="param-group">
@@ -581,9 +643,12 @@
       overhang_depth: 1.0,
       orientation_azimuth: 0.0,
       glazing_u_val: 1.8,
-      site_preset: 'coastal',
-      tree_density: 0.65,
-      has_water: true
+      site_preset: 'ocean',
+      tree_density: 0.60,
+      has_water: true,
+      water_type: 'ocean',
+      terrain_slope: 16.0,
+      mountain_height: 16.0
     };
 
     // 2. Start Application
@@ -651,23 +716,73 @@
     setupSlider('slider-uval', 'glazing_u_val', 'val-uval', v => `${v.toFixed(1)} W/m²K`);
     setupSlider('slider-trees', 'tree_density', 'val-trees', v => `${Math.round(v * 100)}%`);
 
-    // Site Environment Preset Dropdown
-    document.getElementById('select-site-preset').addEventListener('change', (e) => {
+    // Site Environment Preset Dropdown & Custom Site Builder
+    const customSitePanel = document.getElementById('custom-site-panel');
+    const selectSitePreset = document.getElementById('select-site-preset');
+
+    function applyCustomSiteFromUI() {
+      const mH = parseFloat(document.getElementById('slider-custom-mheight').value);
+      const slope = parseFloat(document.getElementById('slider-custom-slope').value);
+      const slopeDir = document.getElementById('select-custom-slopedir').value;
+      const waterType = document.getElementById('select-custom-water').value;
+      const waterProx = parseFloat(document.getElementById('slider-custom-waterprox').value);
+      const biome = document.getElementById('select-custom-biome').value;
+
+      params.mountain_height = mH;
+      params.terrain_slope = slope;
+      params.water_type = waterType;
+      params.has_water = waterType !== 'none';
+
+      viewport.updateCustomSiteParams({
+        mountain_height: mH,
+        terrain_slope: slope,
+        slope_direction: slopeDir,
+        water_type: waterType,
+        water_proximity: waterProx,
+        vegetation_biome: biome,
+        tree_density: params.tree_density
+      });
+      runEvaluation();
+    }
+
+    selectSitePreset.addEventListener('change', (e) => {
       const presetKey = e.target.value;
       params.site_preset = presetKey;
-      params.has_water = (presetKey === 'coastal');
-      viewport.setSitePreset(presetKey);
+      customSitePanel.style.display = (presetKey === 'custom') ? 'block' : 'none';
+
+      if (presetKey !== 'custom') {
+        viewport.setSitePreset(presetKey);
+      } else {
+        applyCustomSiteFromUI();
+      }
 
       const statusMap = {
-        coastal: 'Lakefront Shoreline (Lake Zurich)',
-        mountain: 'Alpine Mountain Ridge (Chamonix)',
-        forest: 'Dense Tree Forest Belt (Black Forest)',
-        urban: 'Urban Canyon (High-rise Shadows)',
-        studio: 'Minimal Engineering Plinth'
+        ocean: '🌊 Ocean Shoreline & Coastal Bluff (Pacific Coast)',
+        mountain: '⛰️ Alpine Mountain Ridge & Peaks (Mont-Blanc)',
+        lake: '🏞️ Inland Freshwater Lakefront (Lake Zurich)',
+        forest: '🌲 Forested Tree Canopy (Black Forest)',
+        urban: '🏢 Dense Urban Canyon (Singapore Marina)',
+        studio: '🏛️ Minimal Engineering Plinth',
+        custom: '🛠️ Custom Parameterized 3D Site'
       };
       document.getElementById('status-site-name').textContent = statusMap[presetKey] || presetKey;
       runEvaluation();
     });
+
+    // Custom Topography & Water Sliders Listeners
+    setupSlider('slider-custom-mheight', null, 'val-custom-mheight', v => `${Math.round(v)} m`);
+    document.getElementById('slider-custom-mheight').addEventListener('input', applyCustomSiteFromUI);
+
+    setupSlider('slider-custom-slope', null, 'val-custom-slope', v => `${Math.round(v)}°`);
+    document.getElementById('slider-custom-slope').addEventListener('input', applyCustomSiteFromUI);
+
+    document.getElementById('select-custom-slopedir').addEventListener('change', applyCustomSiteFromUI);
+    document.getElementById('select-custom-water').addEventListener('change', applyCustomSiteFromUI);
+
+    setupSlider('slider-custom-waterprox', null, 'val-custom-waterprox', v => `${Math.round(v)} m`);
+    document.getElementById('slider-custom-waterprox').addEventListener('input', applyCustomSiteFromUI);
+
+    document.getElementById('select-custom-biome').addEventListener('change', applyCustomSiteFromUI);
 
     // Plant Trees on Click Tool Toggle
     let plantToolActive = false;
@@ -935,14 +1050,43 @@
     function applySiteFromMap(site) {
       params.site_preset = site.preset;
       params.has_water = site.hasWater;
+      params.water_type = site.waterType;
       params.tree_density = site.treeDensity;
+      params.terrain_slope = site.slope;
+      params.mountain_height = site.mountainHeight;
 
-      document.getElementById('select-site-preset').value = site.preset;
+      selectSitePreset.value = site.preset;
+      customSitePanel.style.display = (site.preset === 'custom') ? 'block' : 'none';
+
       document.getElementById('slider-trees').value = site.treeDensity;
       document.getElementById('val-trees').textContent = `${Math.round(site.treeDensity * 100)}%`;
       document.getElementById('status-site-name').textContent = site.name;
 
-      viewport.setSitePreset(site.preset);
+      // Sync custom controls with real map telemetry so the user can inspect or fine-tune
+      if (site.mountainHeight !== undefined) {
+        document.getElementById('slider-custom-mheight').value = site.mountainHeight;
+        document.getElementById('val-custom-mheight').textContent = `${Math.round(site.mountainHeight)} m`;
+      }
+      if (site.slope !== undefined) {
+        document.getElementById('slider-custom-slope').value = site.slope;
+        document.getElementById('val-custom-slope').textContent = `${site.slope.toFixed(1)}°`;
+      }
+      if (site.slopeDir) {
+        document.getElementById('select-custom-slopedir').value = site.slopeDir;
+      }
+      if (site.waterType) {
+        document.getElementById('select-custom-water').value = site.waterType;
+      }
+      if (site.waterProximity) {
+        document.getElementById('slider-custom-waterprox').value = site.waterProximity;
+        document.getElementById('val-custom-waterprox').textContent = `${Math.round(site.waterProximity)} m`;
+      }
+      if (site.biome) {
+        document.getElementById('select-custom-biome').value = site.biome;
+      }
+
+      // Generate 3D Topography, Water & Vegetation in Three.js Viewport
+      viewport.applySiteData(site);
       runEvaluation();
     }
 
