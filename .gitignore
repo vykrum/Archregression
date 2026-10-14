@@ -1,8 +1,8 @@
 # Build outputs & dependencies
 node_modules/
 dist/
-bin/
-obj/
+**/bin/
+**/obj/
 *.user
 *.suo
 

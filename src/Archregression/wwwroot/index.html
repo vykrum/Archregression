@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Archregression — F# WebAssembly Architectural Lab</title>
+  <base href="/">
+
+  <!-- Fonts & Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+  <!-- Leaflet CSS for Interactive Global Map -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
+
+  <!-- Dark Studio Design System CSS -->
+  <link rel="stylesheet" href="css/index.css">
+
+  <!-- External Libraries -->
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script src="https://cdn.plot.ly/plotly-2.32.0.min.js" charset="utf-8"></script>
+</head>
+<body>
+  <!-- F# Bolero WebAssembly Mount Point -->
+  <div id="main">
+    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0a0e17; color: #38bdf8; font-family: 'JetBrains Mono', monospace;">
+      <div style="font-size: 2.5rem; margin-bottom: 1rem;">🏛️</div>
+      <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Archregression.Bolero</div>
+      <div style="font-size: 0.85rem; color: #94a3b8;">Loading F# WebAssembly & .NET 10 Runtime...</div>
+    </div>
+  </div>
+
+  <!-- Blazor WebAssembly Framework -->
+  <script src="_framework/blazor.webassembly.js"></script>
+
+  <!-- Three.js JSInterop Bridge -->
+  <script type="module" src="js/viewportInterop.js"></script>
+</body>
+</html>
