@@ -1,7 +1,7 @@
-# Launch Archregression F# Bolero WebAssembly Studio
+﻿# Launch Archregression F# Bolero WebAssembly Studio
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host " 🏛️ Archregression: F# Bolero WebAssembly (.NET 10) Studio" -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "Restoring and launching Blazor WebAssembly DevServer..." -ForegroundColor Gray
+Write-Host "Launching Studio at http://localhost:5050 ..." -ForegroundColor Gray
 
-dotnet run --project src/Archregression
+dotnet run --project src/Archregression --urls "http://localhost:5050"
