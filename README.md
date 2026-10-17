@@ -129,4 +129,3 @@ dotnet publish src/Archregression -c Release -o dist
 
 - Licensed under **Apache-2.0**.
 - Built with **F#**, **ML.NET**, **Bolero**, **Three.js**, and **SharpGLTF**.
-- Designed to integrate seamlessly with **[Hywe](https://github.com/vykrum/Hywe)**.
