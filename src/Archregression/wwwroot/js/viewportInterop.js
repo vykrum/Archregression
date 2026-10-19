@@ -178,8 +178,26 @@ window.archInterop = {
     if (viewportInstance) {
       viewportInstance.exportGLB();
     }
+  },
+
+  resizeCharts: () => {
+    setTimeout(() => {
+      ['chart-parity', 'chart-shap', 'chart-residual'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el && window.Plotly) {
+          try { window.Plotly.Plots.resize(el); } catch (_) {}
+        }
+      });
+    }, 150);
+  },
+
+  resizeViewport: () => {
+    if (viewportInstance) {
+      setTimeout(() => viewportInstance.onWindowResize(), 100);
+    }
   }
 };
+
 
 // Retry initialization until Blazor mounts DOM elements
 let initAttempts = 0;

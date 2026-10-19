@@ -431,6 +431,13 @@ type SurrogatePredictions =
       CurbCutPermitted: bool
       ZoningCompliant: bool }
 
+/// Active Drawer or Sheet in the Mobile / Responsive Interface
+type ActiveDrawer =
+    | NoDrawer
+    | ParametersDrawer
+    | AnalyticsDrawer
+    | CameraDrawer
+
 /// Elmish UI Model State
 type Model =
     { Architecture: ArchitecturalParams
@@ -443,7 +450,10 @@ type Model =
       ShowSpatialGraph: bool
       ShowWireframe: bool
       ActiveCameraView: string
-      IsOptimizing: bool }
+      IsOptimizing: bool
+      ActiveDrawer: ActiveDrawer
+      IsDashboardCollapsed: bool
+      IsParametersCollapsed: bool }
 
 /// Elmish Messages
 type Message =
@@ -485,3 +495,8 @@ type Message =
     | TriggerGenerativeOptimize
     | ApplyOptimizedDesign of ArchitecturalParams
     | ResetParameters
+    | ToggleDrawer of ActiveDrawer
+    | CloseDrawer
+    | ToggleDashboard
+    | ToggleParameters
+

@@ -91,6 +91,15 @@ module Interop =
             if not (isNull js) then
                 js.InvokeVoidAsync("archInterop.applyMapSite") |> ignore
 
+        member this.ResizeCharts() : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.resizeCharts") |> ignore
+
+        member this.ResizeViewport() : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.resizeViewport") |> ignore
+
+
         member this.ParseSiteFromJson(jsonStr: string) : SiteLocation option =
             try
                 if String.IsNullOrWhiteSpace jsonStr then None

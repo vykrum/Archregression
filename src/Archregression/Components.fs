@@ -13,21 +13,21 @@ module Components =
             attr.``class`` "app-header"
             div {
                 attr.``class`` "brand-section"
-                div { attr.``class`` "brand-logo"; "HYWE" }
+                div { attr.``class`` "brand-logo"; "ARCH" }
                 div {
                     attr.``class`` "brand-text"
                     h1 { "Archregression CAD" }
-                    p { "Satellite DEM Topography & Generative Architectural Surrogates" }
+                    p { attr.``class`` "desktop-only"; "Satellite DEM Topography & Generative Architectural Surrogates" }
                 }
             }
             div {
-                attr.``class`` "header-status"
+                attr.``class`` "header-status desktop-only"
                 span { sprintf "%s | %.4f°N, %.4f°E | Elev: %.0f m MSL | Slope: %.1f° (%s)" model.Site.Name model.Site.Latitude model.Site.Longitude model.Site.Elevation model.Site.Topography.TerrainSlope model.Site.Topography.SlopeDirection.DisplayName }
             }
             div {
                 attr.``class`` "header-actions"
                 button {
-                    attr.``class`` "btn"
+                    attr.``class`` "btn desktop-only"
                     on.click (fun _ -> dispatch OpenMapModal)
                     "Map Location"
                 }
@@ -38,19 +38,25 @@ module Components =
                     optLabel
                 }
                 button {
-                    attr.``class`` "btn"
+                    attr.``class`` (if not model.IsDashboardCollapsed then "btn btn-hud-toggle active desktop-only" else "btn btn-hud-toggle desktop-only")
+                    on.click (fun _ -> dispatch ToggleDashboard)
+                    if model.IsDashboardCollapsed then "📊 Analytics" else "📊 Hide Analytics"
+                }
+                button {
+                    attr.``class`` "btn desktop-only"
                     on.click (fun _ -> ())
                     attr.id "btn-export-glb"
                     "Export GLB"
                 }
                 a {
-                    attr.``class`` "btn"
+                    attr.``class`` "btn desktop-only"
                     attr.href "https://huggingface.co/datasets/vykrum/arch-regression-dataset"
                     attr.target "_blank"
                     "Dataset"
                 }
             }
         }
+
 
     /// Technical Parameter Slider Row
     let renderSlider (label: string) (displayVal: string) (minVal: float) (maxVal: float) (stepVal: float) (currentVal: float) (msgCtor: float -> Message) (dispatch: Message -> unit) =
@@ -254,3 +260,155 @@ module Components =
                 }
             }
         }
+
+    /// Floating Live Quick-Metrics Strip on 3D Viewport (Provides live feedback without dominating screen)
+    let renderQuickMetricsBar (pred: SurrogatePredictions) (site: SiteLocation) (dispatch: Message -> unit) =
+        div {
+            attr.``class`` "viewport-quick-metrics"
+            attr.title "Live surrogate metrics — Tap to open full analytics dashboard"
+            on.click (fun _ -> dispatch (ToggleDrawer AnalyticsDrawer))
+
+            div {
+                attr.``class`` "quick-metric-pill"
+                span { attr.``class`` "qm-label"; "sDA" }
+                span { attr.``class`` "qm-val"; sprintf "%.1f%%" pred.SdaPercent }
+            }
+            div {
+                attr.``class`` "quick-metric-pill"
+                span { attr.``class`` "qm-label"; "EARTHWORK" }
+                let sign = if pred.NetEarthworkM3 > 0.0 then "+" else ""
+                span { attr.``class`` "qm-val"; sprintf "%s%.0f m³" sign pred.NetEarthworkM3 }
+            }
+            div {
+                attr.``class`` "quick-metric-pill"
+                span { attr.``class`` "qm-label"; "NOISE" }
+                span { attr.``class`` "qm-val"; sprintf "%.0f dB" pred.FacadeNoiseLdenDb }
+            }
+            div {
+                attr.``class`` "quick-metric-pill"
+                span { attr.``class`` "qm-label"; "FAR" }
+                span { attr.``class`` "qm-val"; sprintf "%.2f" pred.FarRatio }
+            }
+            div {
+                attr.``class`` "quick-metric-pill qm-latency"
+                span { sprintf "%.2f ms" pred.LatencyMs }
+            }
+            div {
+                attr.``class`` "qm-expand-icon"
+                "📊"
+            }
+        }
+
+    /// Camera Views & Visual Overlays Sheet for Mobile
+    let renderCameraSheet (model: Model) (dispatch: Message -> unit) =
+        div {
+            attr.``class`` (if model.ActiveDrawer = CameraDrawer then "camera-sheet active" else "camera-sheet")
+            div {
+                attr.``class`` "sheet-header-mobile"
+                div { attr.``class`` "sheet-handle" }
+            }
+            div {
+                attr.``class`` "drawer-header"
+                div { attr.``class`` "drawer-title"; "Camera Views & 3D Overlays" }
+                button {
+                    attr.``class`` "drawer-close-btn"
+                    on.click (fun _ -> dispatch CloseDrawer)
+                    "✕"
+                }
+            }
+            div {
+                attr.``class`` "camera-sheet-body"
+                div { attr.``class`` "camera-sheet-subtitle"; "CAMERA PRESETS" }
+                div {
+                    attr.``class`` "camera-btn-grid"
+                    button {
+                        attr.``class`` (if model.ActiveCameraView = "iso" then "btn btn-primary" else "btn")
+                        on.click (fun _ ->
+                            dispatch (SetCameraView "iso")
+                            dispatch CloseDrawer)
+                        "Isometric"
+                    }
+                    button {
+                        attr.``class`` (if model.ActiveCameraView = "top" then "btn btn-primary" else "btn")
+                        on.click (fun _ ->
+                            dispatch (SetCameraView "top")
+                            dispatch CloseDrawer)
+                        "Top Plan"
+                    }
+                    button {
+                        attr.``class`` (if model.ActiveCameraView = "south" then "btn btn-primary" else "btn")
+                        on.click (fun _ ->
+                            dispatch (SetCameraView "south")
+                            dispatch CloseDrawer)
+                        "South Elev."
+                    }
+                    button {
+                        attr.``class`` (if model.ActiveCameraView = "east" then "btn btn-primary" else "btn")
+                        on.click (fun _ ->
+                            dispatch (SetCameraView "east")
+                            dispatch CloseDrawer)
+                        "East Elev."
+                    }
+                }
+                div { attr.``class`` "camera-sheet-subtitle"; attr.style "margin-top: 0.85rem;"; "3D OVERLAYS & TOOLS" }
+                div {
+                    attr.``class`` "camera-btn-grid"
+                    button {
+                        attr.``class`` (if model.ShowSpatialGraph then "btn btn-primary" else "btn")
+                        on.click (fun _ -> dispatch ToggleSpatialGraph)
+                        if model.ShowSpatialGraph then "Graph: ON" else "Graph: OFF"
+                    }
+                    button {
+                        attr.``class`` (if model.ShowWireframe then "btn btn-primary" else "btn")
+                        on.click (fun _ -> dispatch ToggleWireframe)
+                        if model.ShowWireframe then "Wire: ON" else "Wire: OFF"
+                    }
+                }
+                div { attr.``class`` "camera-sheet-subtitle"; attr.style "margin-top: 0.85rem;"; "INTERACTIVE VEGETATION" }
+                button {
+                    attr.``class`` (if model.PlantTreeMode then "btn btn-primary" else "btn")
+                    attr.style "width: 100%; justify-content: center;"
+                    on.click (fun _ ->
+                        dispatch TogglePlantTreeMode
+                        dispatch CloseDrawer)
+                    if model.PlantTreeMode then "🌳 Planting Active (Tap Ground)" else "🌳 Plant Tree Mode"
+                }
+            }
+        }
+
+    /// Mobile Bottom Action Dock (Sticky tab navigation on small screens)
+    let renderMobileDock (model: Model) (dispatch: Message -> unit) =
+        nav {
+            attr.``class`` "mobile-bottom-dock"
+            button {
+                attr.``class`` (if model.ActiveDrawer = ParametersDrawer then "dock-btn active" else "dock-btn")
+                on.click (fun _ -> dispatch (ToggleDrawer ParametersDrawer))
+                span { attr.``class`` "dock-icon"; "🎛️" }
+                span { attr.``class`` "dock-text"; "Params" }
+            }
+            button {
+                attr.``class`` (if model.ActiveDrawer = AnalyticsDrawer then "dock-btn active" else "dock-btn")
+                on.click (fun _ -> dispatch (ToggleDrawer AnalyticsDrawer))
+                span { attr.``class`` "dock-icon"; "📊" }
+                span { attr.``class`` "dock-text"; "Metrics" }
+            }
+            button {
+                attr.``class`` (if model.ActiveDrawer = CameraDrawer then "dock-btn active" else "dock-btn")
+                on.click (fun _ -> dispatch (ToggleDrawer CameraDrawer))
+                span { attr.``class`` "dock-icon"; "🧭" }
+                span { attr.``class`` "dock-text"; "Views" }
+            }
+            button {
+                attr.``class`` "dock-btn"
+                on.click (fun _ -> dispatch OpenMapModal)
+                span { attr.``class`` "dock-icon"; "🗺️" }
+                span { attr.``class`` "dock-text"; "Map" }
+            }
+            button {
+                attr.``class`` (if model.IsOptimizing then "dock-btn dock-btn-primary optimizing" else "dock-btn dock-btn-primary")
+                on.click (fun _ -> dispatch TriggerGenerativeOptimize)
+                span { attr.``class`` "dock-icon"; "⚡" }
+                span { attr.``class`` "dock-text"; if model.IsOptimizing then "..." else "Synthesize" }
+            }
+        }
+

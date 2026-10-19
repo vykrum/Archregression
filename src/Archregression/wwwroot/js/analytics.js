@@ -1,4 +1,4 @@
-﻿/**
+/**
  * wwwroot/js/analytics.js
  * =======================
  * Real-time Regression & Analytics Engine.
@@ -20,11 +20,11 @@ export class RegressionAnalytics {
     this.currentPrediction = null;
     this.targetMetadata = {
       sda_percent: { name: 'Spatial Daylight Autonomy (sDA 300/50%)', unit: '%', range: [0, 100], r2: 0.964, rmse: 3.42 },
-      cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/mÂ²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
+      cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/m²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
       peak_stress: { name: 'Peak Von Mises Stress', unit: 'MPa', range: [10, 95], r2: 0.978, rmse: 2.45 },
-      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCOâ‚‚e/mÂ²', range: [180, 580], r2: 0.985, rmse: 7.90 },
+      embodied_carbon: { name: 'Embodied Carbon Footprint', unit: 'kgCO₂e/m²', range: [180, 580], r2: 0.985, rmse: 7.90 },
       biophilic_view: { name: 'Biophilic & Green View Factor', unit: '%', range: [10, 100], r2: 0.982, rmse: 2.80 },
-      microclimate_cooling: { name: 'Microclimate Cooling Drop (Î”T)', unit: 'Â°C', range: [0, 5.0], r2: 0.968, rmse: 0.25 }
+      microclimate_cooling: { name: 'Microclimate Cooling Drop (ΔT)', unit: '°C', range: [0, 5.0], r2: 0.968, rmse: 0.25 }
     };
 
     this.shapRankings = {
@@ -214,7 +214,7 @@ export class RegressionAnalytics {
             y: 0.95,
             xanchor: 'left',
             yanchor: 'top',
-            text: `<b>RÂ² = ${meta.r2}</b><br>RMSE = ${meta.rmse} ${meta.unit}`,
+            text: `<b>R² = ${meta.r2}</b><br>RMSE = ${meta.rmse} ${meta.unit}`,
             showarrow: false,
             font: { color: '#38bdf8', size: 11 },
             bgcolor: 'rgba(15, 23, 42, 0.85)',

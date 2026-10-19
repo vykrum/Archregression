@@ -1,4 +1,4 @@
-﻿/**
+/**
  * index.css
  * =========
  * Utilitarian Technical Design System for Archregression CAD.
@@ -178,11 +178,13 @@ body {
 
 /* Left Panel: 3D Spatial Viewport Container */
 .viewport-panel {
-  flex: 1.15;
+  flex: 1;
   position: relative;
-  background: #0b0d11;
+  background: #080a0f;
   overflow: hidden;
   display: flex;
+  min-width: 0;
+  transition: flex 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 #viewport-3d {
@@ -194,20 +196,31 @@ body {
   outline: none;
 }
 
-/* Left Parametric Controls Drawer */
+/* Left Parametric Controls Drawer (Desktop) */
 .parameters-drawer {
   position: absolute;
   top: 0.75rem;
   left: 0.75rem;
-  width: 290px;
+  width: 300px;
   max-height: calc(100% - 1.5rem);
-  background: rgba(20, 23, 29, 0.94);
+  background: rgba(18, 22, 29, 0.90);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   padding: 0.85rem;
-  z-index: 10;
+  z-index: 25;
   overflow-y: auto;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.45);
+  transition: transform 0.28s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease;
 }
+
+.params-collapsed .parameters-drawer {
+  transform: translateX(calc(-100% - 1rem));
+  opacity: 0;
+  pointer-events: none;
+}
+
 
 .parameters-drawer::-webkit-scrollbar {
   width: 4px;
@@ -379,17 +392,36 @@ body {
   color: #fff;
 }
 
-/* Right Panel: Analytics & Telemetry */
+/* Right Panel: Analytics & Telemetry (Desktop) */
 .analytics-panel {
-  flex: 1.05;
-  background: var(--bg-panel);
+  width: 410px;
+  max-width: 32vw;
+  min-width: 360px;
+  background: rgba(18, 22, 29, 0.94);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
   border-left: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   overflow-y: auto;
   padding: 0.85rem 1rem;
-  gap: 0.85rem;
+  gap: 0.75rem;
+  z-index: 20;
+  box-shadow: -4px 0 24px rgba(0, 0, 0, 0.35);
+  transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1), min-width 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.2s ease, padding 0.3s ease;
 }
+
+.dashboard-collapsed .analytics-panel {
+  width: 0 !important;
+  min-width: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-left: none !important;
+  opacity: 0;
+  pointer-events: none;
+  overflow: hidden;
+}
+
 
 .analytics-panel::-webkit-scrollbar {
   width: 4px;
@@ -743,4 +775,504 @@ body {
   justify-content: flex-end;
   gap: 0.45rem;
 }
+
+/* ==========================================================================
+   Header & HUD Component Extensions
+   ========================================================================== */
+.btn-hud-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  transition: all 0.2s ease;
+}
+
+.btn-hud-toggle.active {
+  background: rgba(37, 99, 235, 0.25);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.drawer-close-btn {
+  background: transparent;
+  border: 1px solid transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  width: 26px;
+  height: 26px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-xs);
+  font-size: 0.85rem;
+  transition: all 0.15s ease;
+}
+
+.drawer-close-btn:hover {
+  background: var(--bg-surface-hover);
+  border-color: var(--border-subtle);
+  color: #fff;
+}
+
+.analytics-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding-bottom: 0.45rem;
+  border-bottom: 1px solid var(--border-subtle);
+  margin-bottom: 0.25rem;
+}
+
+.analytics-panel-sub {
+  font-size: 0.64rem;
+  color: var(--text-muted);
+  margin-top: 0.1rem;
+}
+
+/* ==========================================================================
+   Floating Live Quick-Metrics Strip (Over 3D Canvas)
+   ========================================================================== */
+.viewport-quick-metrics {
+  position: absolute;
+  bottom: 1rem;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  background: rgba(14, 18, 25, 0.86);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  border: 1px solid rgba(56, 189, 248, 0.28);
+  padding: 0.3rem 0.75rem;
+  border-radius: 9999px;
+  z-index: 20;
+  cursor: pointer;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.45), 0 0 12px rgba(56, 189, 248, 0.15);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  user-select: none;
+}
+
+.viewport-quick-metrics:hover {
+  background: rgba(18, 24, 34, 0.95);
+  border-color: #38bdf8;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.55), 0 0 20px rgba(56, 189, 248, 0.3);
+  transform: translateX(-50%) translateY(-2px);
+}
+
+.quick-metric-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 9999px;
+  background: rgba(255, 255, 255, 0.04);
+  font-size: 0.68rem;
+}
+
+.qm-label {
+  color: var(--text-muted);
+  font-size: 0.58rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+}
+
+.qm-val {
+  color: #60a5fa;
+  font-family: var(--font-mono);
+  font-weight: 600;
+  font-size: 0.72rem;
+}
+
+.qm-latency {
+  color: var(--accent-emerald);
+  font-family: var(--font-mono);
+  font-size: 0.65rem;
+  background: rgba(16, 185, 129, 0.08);
+  border: 1px solid rgba(16, 185, 129, 0.2);
+}
+
+.qm-expand-icon {
+  font-size: 0.75rem;
+  margin-left: 0.2rem;
+}
+
+/* Telemetry Grid Classes */
+.telemetry-grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 0.45rem;
+  margin-bottom: 0.55rem;
+}
+
+.telemetry-grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.45rem;
+  margin-bottom: 0.65rem;
+}
+
+/* Elements hidden on desktop by default */
+.sheet-header-mobile,
+.drawer-backdrop,
+.mobile-bottom-dock,
+.camera-sheet {
+  display: none;
+}
+
+/* ==========================================================================
+   Mobile & Small Screen Responsive Overhauls (Max Width 850px)
+   ========================================================================== */
+@media (max-width: 850px) {
+  /* Hide desktop-only UI components */
+  .desktop-only,
+  .desktop-only-btn {
+    display: none !important;
+  }
+
+  /* Show mobile-specific UI components */
+  .sheet-header-mobile {
+    display: block;
+    padding: 0.4rem 0 0.25rem 0;
+    cursor: grab;
+  }
+
+  .sheet-handle {
+    width: 44px;
+    height: 5px;
+    border-radius: 3px;
+    background: #475569;
+    margin: 0 auto;
+  }
+
+  .drawer-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.65);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    z-index: 85;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.25s ease;
+  }
+
+  .drawer-backdrop.active {
+    opacity: 1;
+    pointer-events: auto;
+  }
+
+  /* Compact Header on Mobile */
+  .app-header {
+    height: 44px;
+    padding: 0 0.75rem;
+  }
+
+  .brand-logo {
+    height: 24px;
+    padding: 0 0.4rem;
+    font-size: 0.68rem;
+  }
+
+  .brand-text h1 {
+    font-size: 0.85rem;
+  }
+
+  /* Workspace fills mobile viewport above the dock and status bar */
+  .main-workspace {
+    height: calc(100vh - 44px - 54px - 24px);
+    overflow: hidden;
+    position: relative;
+  }
+
+  /* Hero 3D Viewport: 100% of the mobile screen, fully interactable! */
+  .viewport-panel {
+    position: absolute !important;
+    inset: 0 !important;
+    width: 100% !important;
+    height: 100% !important;
+    flex: none !important;
+    background: transparent !important;
+    overflow: visible !important;
+    z-index: auto !important;
+  }
+
+  #viewport-3d {
+    width: 100% !important;
+    height: 100% !important;
+    z-index: 1;
+  }
+
+
+  /* Viewport Top HUD on mobile */
+  .viewport-top-hud {
+    top: 0.5rem;
+    right: 0.5rem;
+    gap: 0.2rem;
+    padding: 0.2rem;
+  }
+
+  .viewport-top-hud .hud-btn {
+    padding: 0.2rem 0.45rem;
+    font-size: 0.65rem;
+  }
+
+  /* Floating Quick Metrics Bar on Mobile (Compact top strip) */
+  .viewport-quick-metrics {
+    bottom: auto;
+    top: 0.5rem;
+    left: 0.5rem;
+    transform: none;
+    max-width: calc(100% - 1rem);
+    overflow-x: auto;
+    padding: 0.25rem 0.5rem;
+    gap: 0.25rem;
+  }
+
+  .viewport-quick-metrics:hover {
+    transform: none;
+  }
+
+  .quick-metric-pill {
+    padding: 0.15rem 0.35rem;
+    font-size: 0.62rem;
+  }
+
+  .qm-label {
+    font-size: 0.52rem;
+  }
+
+  .qm-val {
+    font-size: 0.65rem;
+  }
+
+  /* Parameters Bottom Sheet Drawer (Mobile) */
+  .parameters-drawer {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    height: 75vh;
+    max-height: 80vh;
+    background: rgba(16, 20, 27, 0.98);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 0.5rem 1rem 2rem 1rem;
+    z-index: 95;
+    transform: translateY(105%);
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+  }
+
+  .drawer-params-open .parameters-drawer {
+    transform: translateY(0);
+  }
+
+  /* Analytics Bottom Sheet Panel (Dashboard) */
+  .analytics-panel {
+    position: fixed;
+    top: auto;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100% !important;
+    max-width: 100% !important;
+    min-width: 0 !important;
+    height: 82vh;
+    max-height: 88vh;
+    background: rgba(16, 20, 27, 0.98);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 0.5rem 1rem 2rem 1rem;
+    z-index: 95;
+    transform: translateY(105%);
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+  }
+
+  .drawer-analytics-open .analytics-panel {
+    transform: translateY(0);
+    opacity: 1 !important;
+    pointer-events: auto !important;
+  }
+
+  /* Responsive Grid Inside Analytics on Mobile */
+  .kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+  }
+
+  .telemetry-grid-4 {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.4rem;
+  }
+
+  .telemetry-grid-3 {
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.4rem;
+  }
+
+  .charts-row-split {
+    grid-template-columns: 1fr;
+    gap: 0.65rem;
+  }
+
+  .chart-viewport {
+    min-height: 180px;
+  }
+
+  /* Camera & Views Bottom Sheet */
+  .camera-sheet {
+    display: block;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    width: 100%;
+    background: rgba(16, 20, 27, 0.98);
+    backdrop-filter: blur(24px);
+    -webkit-backdrop-filter: blur(24px);
+    border: 1px solid var(--border-subtle);
+    border-bottom: none;
+    border-radius: 20px 20px 0 0;
+    padding: 0.5rem 1rem 2rem 1rem;
+    z-index: 95;
+    transform: translateY(105%);
+    transition: transform 0.32s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 -10px 40px rgba(0, 0, 0, 0.7);
+  }
+
+
+  .camera-sheet.active {
+    transform: translateY(0);
+  }
+
+  .camera-sheet-body {
+    padding-top: 0.5rem;
+  }
+
+  .camera-sheet-subtitle {
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--text-muted);
+    margin-bottom: 0.5rem;
+  }
+
+  .camera-btn-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.45rem;
+  }
+
+  .camera-btn-grid .btn {
+    justify-content: center;
+    padding: 0.6rem 0.5rem;
+    font-size: 0.75rem;
+  }
+
+  /* Mobile Sticky Bottom Action Dock */
+  .mobile-bottom-dock {
+    display: flex;
+    position: fixed;
+    bottom: 24px;
+    left: 0;
+    right: 0;
+    height: 54px;
+    background: rgba(14, 18, 24, 0.94);
+    backdrop-filter: blur(18px);
+    -webkit-backdrop-filter: blur(18px);
+    border-top: 1px solid var(--border-subtle);
+    align-items: center;
+    justify-content: space-around;
+    padding: 0 0.5rem;
+    z-index: 80;
+  }
+
+  .dock-btn {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.15rem;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    font-size: 0.65rem;
+    font-weight: 500;
+    cursor: pointer;
+    padding: 0.35rem 0.65rem;
+    border-radius: var(--radius-sm);
+    transition: all 0.15s ease;
+    min-width: 58px;
+  }
+
+  .dock-icon {
+    font-size: 1.15rem;
+    line-height: 1;
+  }
+
+  .dock-btn:hover,
+  .dock-btn.active {
+    color: #fff;
+    background: rgba(37, 99, 235, 0.2);
+  }
+
+  .dock-btn.active .dock-text {
+    color: #60a5fa;
+    font-weight: 700;
+  }
+
+  .dock-btn-primary {
+    background: var(--accent-primary);
+    color: #fff;
+    font-weight: 600;
+    border-radius: var(--radius-sm);
+  }
+
+  .dock-btn-primary:hover {
+    background: var(--accent-primary-hover);
+  }
+
+  .dock-btn-primary.optimizing {
+    animation: pulse-glow 1.2s infinite;
+  }
+
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.65; }
+  }
+
+  /* Mobile Status Bar */
+  .app-status-bar {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 24px;
+    padding: 0 0.65rem;
+    font-size: 0.6rem;
+    z-index: 80;
+  }
+
+  /* Modal Mobile Fit */
+  .modal-dialog {
+    width: 95%;
+    max-height: 92vh;
+    margin: 0 auto;
+  }
+
+  .map-picker-container {
+    height: min(280px, 42vh);
+  }
+}
+
 

@@ -169,7 +169,12 @@ export class SpatialViewport {
 
     // 11. Event Listeners
     window.addEventListener('resize', () => this.onWindowResize());
+    if (window.ResizeObserver && this.container) {
+      this.resizeObserver = new ResizeObserver(() => this.onWindowResize());
+      this.resizeObserver.observe(this.container);
+    }
     this.renderer.domElement.addEventListener('click', (e) => this.onCanvasClick(e));
+
 
     // 12. Animation Loop
     this.animate = this.animate.bind(this);
@@ -1556,10 +1561,12 @@ export class SpatialViewport {
     if (!this.container || !this.renderer || !this.camera) return;
     const width = this.container.clientWidth;
     const height = this.container.clientHeight;
+    if (width <= 0 || height <= 0) return;
     this.camera.aspect = width / height;
     this.camera.updateProjectionMatrix();
     this.renderer.setSize(width, height);
   }
+
 
   animate() {
     requestAnimationFrame(this.animate);

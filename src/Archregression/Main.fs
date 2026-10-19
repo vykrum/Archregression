@@ -34,7 +34,11 @@ type MainComponent() =
                   ShowSpatialGraph = true
                   ShowWireframe = false
                   ActiveCameraView = "iso"
-                  IsOptimizing = false }
+                  IsOptimizing = false
+                  ActiveDrawer = NoDrawer
+                  IsDashboardCollapsed = false
+                  IsParametersCollapsed = false }
+
             let detectCmd =
                 Cmd.OfTask.perform
                     (fun () -> bridge.DetectLocationAsync())
@@ -297,28 +301,105 @@ type MainComponent() =
                 bridge.UpdateArchitecture p
                 { model with Architecture = p; Prediction = pred }, Cmd.none
 
+            | ToggleDrawer drawer ->
+                let next = if model.ActiveDrawer = drawer then NoDrawer else drawer
+                if next = AnalyticsDrawer then
+                    bridge.ResizeCharts()
+                bridge.ResizeViewport()
+                { model with ActiveDrawer = next }, Cmd.none
+
+            | CloseDrawer ->
+                bridge.ResizeViewport()
+                { model with ActiveDrawer = NoDrawer }, Cmd.none
+
+            | ToggleDashboard ->
+                let next = not model.IsDashboardCollapsed
+                bridge.ResizeCharts()
+                bridge.ResizeViewport()
+                { model with IsDashboardCollapsed = next }, Cmd.none
+
+            | ToggleParameters ->
+                let next = not model.IsParametersCollapsed
+                bridge.ResizeViewport()
+                { model with IsParametersCollapsed = next }, Cmd.none
+
+
+
         let view (model: Model) (dispatch: Message -> unit) =
             let p = model.Architecture
             let s = model.Site
             let pred = model.Prediction
             let aspect = (p.RoomDepth / Math.Max(0.1, p.RoomWidth))
 
+            let isDrawerOpen = model.ActiveDrawer <> NoDrawer
+
+            let workspaceClasses =
+                [ "main-workspace"
+                  if model.IsDashboardCollapsed then "dashboard-collapsed"
+                  if model.IsParametersCollapsed then "params-collapsed"
+                  match model.ActiveDrawer with
+                  | ParametersDrawer -> "drawer-params-open"
+                  | AnalyticsDrawer -> "drawer-analytics-open"
+                  | CameraDrawer -> "drawer-camera-open"
+                  | NoDrawer -> "" ]
+                |> String.concat " "
+
             concat {
                 Components.renderHeader model dispatch
 
                 div {
-                    attr.``class`` "main-workspace"
+                    attr.``class`` workspaceClasses
 
-                    // Left 3D Viewport Panel
+                    // Backdrop for mobile slide-up sheets
+                    div {
+                        attr.``class`` (if isDrawerOpen then "drawer-backdrop active" else "drawer-backdrop")
+                        on.click (fun _ -> dispatch CloseDrawer)
+                    }
+
+                    // Left 3D Viewport Panel (Dominant Stage)
                     section {
                         attr.``class`` "viewport-panel"
 
-                        // Three.js Canvas Mount Container
+                        // Three.js Canvas Mount Container (ALWAYS PERSISTENT IN DOM)
                         div { attr.id "viewport-3d" }
 
-                        // Left Parameters Inspector Drawer
+                        // Top Viewport HUD Camera & Toggles
+                        div {
+                            attr.``class`` "viewport-top-hud"
+
+                            button {
+                                attr.``class`` (if not model.IsParametersCollapsed then "hud-btn active desktop-only-btn" else "hud-btn desktop-only-btn")
+                                attr.title "Toggle Parameters Drawer"
+                                on.click (fun _ -> dispatch ToggleParameters)
+                                "🎛️ Parameters"
+                            }
+
+                            button { attr.``class`` (if model.ActiveCameraView = "iso" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "iso")); "Iso" }
+                            button { attr.``class`` (if model.ActiveCameraView = "top" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "top")); "Top" }
+                            button { attr.``class`` (if model.ActiveCameraView = "south" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "south")); "South" }
+                            button { attr.``class`` (if model.ActiveCameraView = "east" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "east")); "East" }
+                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "Graph" }
+                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "Wire" }
+
+                            button {
+                                attr.``class`` (if not model.IsDashboardCollapsed then "hud-btn active desktop-only-btn" else "hud-btn desktop-only-btn")
+                                attr.title "Toggle Analytics Dashboard"
+                                on.click (fun _ -> dispatch ToggleDashboard)
+                                "📊 Analytics"
+                            }
+                        }
+
+                        // Floating Live Quick-Metrics Strip Over 3D Canvas
+                        Components.renderQuickMetricsBar pred s dispatch
+
+                        // Parameters Inspector Drawer (Mobile bottom sheet or Desktop floating drawer)
                         aside {
                             attr.``class`` "parameters-drawer"
+
+                            div {
+                                attr.``class`` "sheet-header-mobile"
+                                div { attr.``class`` "sheet-handle" }
+                            }
 
                             div {
                                 attr.``class`` "drawer-header"
@@ -326,10 +407,21 @@ type MainComponent() =
                                     attr.``class`` "drawer-title"
                                     "01. Massing & Program"
                                 }
-                                button {
-                                    attr.``class`` "btn-reset"
-                                    on.click (fun _ -> dispatch ResetParameters)
-                                    "Reset"
+                                div {
+                                    attr.style "display: flex; gap: 0.35rem; align-items: center;"
+                                    button {
+                                        attr.``class`` "btn-reset"
+                                        on.click (fun _ -> dispatch ResetParameters)
+                                        "Reset"
+                                    }
+                                    button {
+                                        attr.``class`` "drawer-close-btn"
+                                        attr.title "Close"
+                                        on.click (fun _ ->
+                                            dispatch CloseDrawer
+                                            dispatch ToggleParameters)
+                                        "✕"
+                                    }
                                 }
                             }
 
@@ -355,10 +447,10 @@ type MainComponent() =
 
                             // WWR & Envelope
                             Components.renderSlider "Window-to-Wall Ratio" (sprintf "%d%%" (int (p.Wwr * 100.0))) 0.15 0.85 0.05 p.Wwr SetWwr dispatch
-                            Components.renderSlider "Louver Angle" (sprintf "%.0fÂ°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
+                            Components.renderSlider "Louver Angle" (sprintf "%.0f°" p.LouverAngle) 0.0 75.0 5.0 p.LouverAngle SetLouverAngle dispatch
                             Components.renderSlider "Overhang Depth" (sprintf "%.2f m" p.OverhangDepth) 0.2 2.5 0.1 p.OverhangDepth SetOverhangDepth dispatch
-                            Components.renderSlider "Solar Azimuth" (sprintf "%.0fÂ°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
-                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/mÂ²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
+                            Components.renderSlider "Solar Azimuth" (sprintf "%.0f°" p.OrientationAzimuth) -90.0 90.0 5.0 p.OrientationAzimuth SetOrientationAzimuth dispatch
+                            Components.renderSlider "Glazing U-Value" (sprintf "%.1f W/m²K" p.GlazingUVal) 0.8 3.2 0.1 p.GlazingUVal SetGlazingUVal dispatch
 
                             // 02. Foundation & Compliance Status
                             div {
@@ -473,50 +565,62 @@ type MainComponent() =
 
                             Components.renderUrbanContextBuilder model.Site dispatch
                         }
-
-                        // Top HUD Camera & Toggles
-                        div {
-                            attr.``class`` "viewport-top-hud"
-                            button { attr.``class`` (if model.ActiveCameraView = "iso" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "iso")); "Iso" }
-                            button { attr.``class`` (if model.ActiveCameraView = "top" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "top")); "Top" }
-                            button { attr.``class`` (if model.ActiveCameraView = "south" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "south")); "South" }
-                            button { attr.``class`` (if model.ActiveCameraView = "east" then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch (SetCameraView "east")); "East" }
-                            button { attr.``class`` (if model.ShowSpatialGraph then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleSpatialGraph); "Graph" }
-                            button { attr.``class`` (if model.ShowWireframe then "hud-btn active" else "hud-btn"); on.click (fun _ -> dispatch ToggleWireframe); "Wire" }
-                        }
                     }
 
-                    // Right Regression & Analytics Panel
+                    // Right Regression & Analytics Panel (Dashboard)
                     section {
                         attr.``class`` "analytics-panel"
+
+                        // Mobile Sheet Drag Handle
+                        div {
+                            attr.``class`` "sheet-header-mobile"
+                            div { attr.``class`` "sheet-handle" }
+                        }
+
+                        // Panel Header with Title & Close/Minimize Button
+                        div {
+                            attr.``class`` "analytics-panel-header"
+                            div {
+                                div { attr.``class`` "drawer-title"; "Surrogate Analytics & Performance" }
+                                div { attr.``class`` "analytics-panel-sub"; "FastTree ML vs 3D Multi-Physics Ground Truth" }
+                            }
+                            button {
+                                attr.``class`` "drawer-close-btn"
+                                attr.title "Collapse Analytics Panel"
+                                on.click (fun _ ->
+                                    dispatch CloseDrawer
+                                    dispatch ToggleDashboard)
+                                "✕"
+                            }
+                        }
 
                         // Top 4 Primary Performance KPIs (Clickable Cards Switch Active Inspection Target)
                         div {
                             attr.``class`` "kpi-grid"
                             Components.renderKpiCard DaylightAutonomy "Daylight (sDA)" (sprintf "%.1f" pred.SdaPercent) "%" "Target: > 55%" model.ActiveTarget dispatch
                             let earthworkSign = if pred.NetEarthworkM3 > 0.0 then "+" else ""
-                            Components.renderKpiCard EarthworkBalance "Net Earthwork" (sprintf "%s%.1f" earthworkSign pred.NetEarthworkM3) "mÂ³" (sprintf "Cut: %.1f | Fill: %.1f" pred.CutVolumeM3 pred.FillVolumeM3) model.ActiveTarget dispatch
+                            Components.renderKpiCard EarthworkBalance "Net Earthwork" (sprintf "%s%.1f" earthworkSign pred.NetEarthworkM3) "m³" (sprintf "Cut: %.1f | Fill: %.1f" pred.CutVolumeM3 pred.FillVolumeM3) model.ActiveTarget dispatch
                             Components.renderKpiCard AcousticComfort "Acoustic (R'w)" (sprintf "%.0f" pred.RequiredAcousticRwDb) "dB" (sprintf "Incident: %.1f dB" pred.FacadeNoiseLdenDb) model.ActiveTarget dispatch
                             Components.renderKpiCard ZoningFar "Zoning FAR" (sprintf "%.2f" pred.FarRatio) "ratio" (sprintf "%.0f%% of Max %.1f" pred.FarUtilizationPct s.Urban.Zoning.MaxFar) model.ActiveTarget dispatch
                         }
 
                         // Topography & Terrain Telemetry Row (4 mini-boxes)
                         div {
-                            attr.style "display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.6rem;"
+                            attr.``class`` "telemetry-grid-4"
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "EXCAVATION CUT" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1f mÂ³" pred.CutVolumeM3 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.CutVolumeM3 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "EMBANKMENT FILL" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1f mÂ³" pred.FillVolumeM3 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f m³" pred.FillVolumeM3 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "HORIZON MASK" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.1fÂ°" pred.HorizonObstructionDeg }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.1f°" pred.HorizonObstructionDeg }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
@@ -527,7 +631,7 @@ type MainComponent() =
 
                         // Urban Mobility & Demographics Telemetry Row (4 mini-boxes)
                         div {
-                            attr.style "display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.5rem; margin-bottom: 0.6rem;"
+                            attr.``class`` "telemetry-grid-4"
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "FACADE NOISE" }
@@ -541,7 +645,7 @@ type MainComponent() =
                             div {
                                 attr.``class`` "telemetry-box"
                                 span { attr.``class`` "telemetry-label"; "GROSS GFA" }
-                                span { attr.``class`` "telemetry-value"; sprintf "%.0f mÂ²" pred.GrossFloorAreaM2 }
+                                span { attr.``class`` "telemetry-value"; sprintf "%.0f m²" pred.GrossFloorAreaM2 }
                             }
                             div {
                                 attr.``class`` "telemetry-box"
@@ -552,10 +656,10 @@ type MainComponent() =
 
                         // Energy & Environmental Secondary Row
                         div {
-                            attr.style "display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; margin-bottom: 0.75rem;"
-                            Components.renderKpiCard CoolingEnergy "Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/mÂ²" "Surrogate: Â±4.8 RMSE" model.ActiveTarget dispatch
+                            attr.``class`` "telemetry-grid-3"
+                            Components.renderKpiCard CoolingEnergy "Cooling Energy" (sprintf "%.1f" pred.CoolingLoad) "kWh/m²" "Surrogate: ±4.8 RMSE" model.ActiveTarget dispatch
                             Components.renderKpiCard StructuralStress "Structural Stress" (sprintf "%.1f" pred.PeakStress) "MPa" "Limit: 140 MPa" model.ActiveTarget dispatch
-                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCOâ‚‚e" "A1-A3 with Acoustics" model.ActiveTarget dispatch
+                            Components.renderKpiCard EmbodiedCarbon "Embodied Carbon" (sprintf "%.1f" pred.EmbodiedCarbon) "kgCO₂e" "A1-A3 with Acoustics" model.ActiveTarget dispatch
                         }
 
                         // Active Metric Header Bar with Latency Chip
@@ -580,8 +684,8 @@ type MainComponent() =
                                 attr.``class`` "chart-card"
                                 div {
                                     attr.``class`` "chart-card-header"
-                                    div { attr.``class`` "chart-title"; "Parity Plot: Physical Simulation (y) vs. F# Surrogate (Å·)" }
-                                    span { attr.``class`` "chart-badge"; "RÂ² = 0.964 | 160 Samples" }
+                                    div { attr.``class`` "chart-title"; "Parity Plot: Physical Simulation (y) vs. F# Surrogate (ŷ)" }
+                                    span { attr.``class`` "chart-badge"; "R² = 0.964 | 160 Samples" }
                                 }
                                 div { attr.id "chart-parity"; attr.``class`` "chart-viewport"; attr.style "min-height: 220px;" }
                             }
@@ -609,6 +713,12 @@ type MainComponent() =
                             }
                         }
                     }
+
+                    // Mobile Camera Sheet
+                    Components.renderCameraSheet model dispatch
+
+                    // Mobile Bottom Action Dock
+                    Components.renderMobileDock model dispatch
                 }
 
                 // Map Modal
@@ -621,8 +731,8 @@ type MainComponent() =
                         attr.``class`` "status-left"
                         div { attr.``class`` "status-item"; span { "Engine: "; strong { "F# Bolero WebAssembly" } } }
                         div { attr.``class`` "status-item"; span { "Site: "; strong { s.Name } } }
-                        div { attr.``class`` "status-item"; span { "Zoning FAR: "; strong { sprintf "%.2f (Max %.1f)" pred.FarRatio s.Urban.Zoning.MaxFar } } }
-                        div { attr.``class`` "status-item"; span { "Noise: "; strong { sprintf "%.1f dB (R'w %.0f dB)" pred.FacadeNoiseLdenDb pred.RequiredAcousticRwDb } } }
+                        div { attr.``class`` "status-item desktop-only"; span { "Zoning FAR: "; strong { sprintf "%.2f (Max %.1f)" pred.FarRatio s.Urban.Zoning.MaxFar } } }
+                        div { attr.``class`` "status-item desktop-only"; span { "Noise: "; strong { sprintf "%.1f dB (R'w %.0f dB)" pred.FacadeNoiseLdenDb pred.RequiredAcousticRwDb } } }
                     }
                     div {
                         attr.``class`` "status-right"
@@ -630,5 +740,6 @@ type MainComponent() =
                     }
                 }
             }
+
 
         Program.mkProgram init update view
