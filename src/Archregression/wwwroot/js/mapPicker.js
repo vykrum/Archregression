@@ -16,6 +16,8 @@ export class GlobalMapPicker {
     this.marker = null;
     this.roadLayer = null;
     this.queryDebounceTimer = null;
+    this.searchAbortController = null;
+    this._docClickListener = null;
 
     // Active site state with default 81-point DEM grid
     this.currentSite = {
@@ -97,6 +99,9 @@ export class GlobalMapPicker {
     setTimeout(() => {
       if (this.map) this.map.invalidateSize();
     }, 200);
+
+    // Bind search bar, preset chips, and geolocation controls
+    this.bindSearchControls();
 
     // Auto-detect user geographical location and place current site
     this.detectCurrentLocation();
@@ -413,6 +418,282 @@ export class GlobalMapPicker {
         }
       }
     }, 280);
+  }
+
+  bindSearchControls() {
+    const input = document.getElementById('map-search-input');
+    const searchBtn = document.getElementById('map-search-btn');
+    const clearBtn = document.getElementById('map-search-clear');
+    const locateBtn = document.getElementById('map-locate-btn');
+
+    if (input && input._boundPicker !== this) {
+      input._boundPicker = this;
+      input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+          e.preventDefault();
+          this.searchLocation(input.value);
+        }
+      });
+      input.addEventListener('input', () => {
+        if (clearBtn) {
+          clearBtn.style.display = input.value.trim().length > 0 ? 'flex' : 'none';
+        }
+      });
+    }
+
+    if (searchBtn && searchBtn._boundPicker !== this) {
+      searchBtn._boundPicker = this;
+      searchBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (input) this.searchLocation(input.value);
+      });
+    }
+
+    if (clearBtn && clearBtn._boundPicker !== this) {
+      clearBtn._boundPicker = this;
+      clearBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        if (input) {
+          input.value = '';
+          input.focus();
+        }
+        clearBtn.style.display = 'none';
+        this.clearSearchResults();
+      });
+    }
+
+    if (locateBtn && locateBtn._boundPicker !== this) {
+      locateBtn._boundPicker = this;
+      locateBtn.addEventListener('click', (e) => {
+        e.preventDefault();
+        this.detectCurrentLocation();
+      });
+    }
+
+    const presets = [
+      { id: 'preset-zurich', lat: 47.3769, lng: 8.5417, name: 'Zurich, Switzerland' },
+      { id: 'preset-sf', lat: 37.7749, lng: -122.4194, name: 'San Francisco, USA' },
+      { id: 'preset-tokyo', lat: 35.6762, lng: 139.6503, name: 'Tokyo, Japan' },
+      { id: 'preset-stmoritz', lat: 46.4908, lng: 9.8355, name: 'St. Moritz, Switzerland' },
+      { id: 'preset-reykjavik', lat: 64.1466, lng: -21.9426, name: 'Reykjavik, Iceland' },
+      { id: 'preset-amalfi', lat: 40.6340, lng: 14.6027, name: 'Amalfi Coast, Italy' }
+    ];
+
+    presets.forEach(p => {
+      const el = document.getElementById(p.id);
+      if (el && el._boundPicker !== this) {
+        el._boundPicker = this;
+        el.addEventListener('click', (e) => {
+          e.preventDefault();
+          if (input) input.value = p.name;
+          if (clearBtn) clearBtn.style.display = 'flex';
+          this.flyToLocation(p.lat, p.lng, p.name);
+        });
+      }
+    });
+
+    if (!this._docClickListener) {
+      this._docClickListener = (e) => {
+        const resultsEl = document.getElementById('map-search-results');
+        const toolbar = document.querySelector('.map-search-toolbar');
+        if (resultsEl && !resultsEl.contains(e.target) && (!toolbar || !toolbar.contains(e.target))) {
+          this.clearSearchResults();
+        }
+      };
+      document.addEventListener('click', this._docClickListener);
+    }
+  }
+
+  parseCoordinates(query) {
+    if (!query) return null;
+    const trimmed = query.trim();
+
+    // Format: "37.7749, -122.4194" or "37.7749 -122.4194"
+    const numRegex = /^([+-]?\d+(?:\.\d+)?)\s*[,;\s]\s*([+-]?\d+(?:\.\d+)?)$/;
+    const m = trimmed.match(numRegex);
+    if (m) {
+      const lat = parseFloat(m[1]);
+      const lng = parseFloat(m[2]);
+      if (!isNaN(lat) && !isNaN(lng) && lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+
+    // Format with N/S and E/W, e.g. "47.3769 N, 8.5417 E"
+    const dirRegex = /^(\d+(?:\.\d+)?)\s*°?\s*([NSns])\s*[,;\s]\s*(\d+(?:\.\d+)?)\s*°?\s*([EWew])$/;
+    const dm = trimmed.match(dirRegex);
+    if (dm) {
+      let lat = parseFloat(dm[1]);
+      if (dm[2].toUpperCase() === 'S') lat = -lat;
+      let lng = parseFloat(dm[3]);
+      if (dm[4].toUpperCase() === 'W') lng = -lng;
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng };
+      }
+    }
+
+    return null;
+  }
+
+  flyToLocation(lat, lng, locName, zoom = 14) {
+    this.currentSite.lat = lat;
+    this.currentSite.lng = lng;
+    if (locName) this.currentSite.name = locName;
+
+    if (this.map) {
+      this.map.flyTo([lat, lng], zoom, { duration: 1.2 });
+    }
+    if (this.marker) {
+      this.marker.setLatLng([lat, lng]);
+    }
+
+    const input = document.getElementById('map-search-input');
+    const clearBtn = document.getElementById('map-search-clear');
+    if (input && locName && !input.value) {
+      input.value = locName;
+      if (clearBtn) clearBtn.style.display = 'flex';
+    }
+
+    this.clearSearchResults();
+    this.analyzeSite(lat, lng);
+  }
+
+  async searchLocation(query) {
+    if (!query || !query.trim()) return;
+    const q = query.trim();
+
+    const coordsElem = document.getElementById('map-coords-readout');
+    const searchBtn = document.getElementById('map-search-btn');
+    if (searchBtn) searchBtn.textContent = 'Searching...';
+
+    // 1. Direct coordinate parsing
+    const coords = this.parseCoordinates(q);
+    if (coords) {
+      if (searchBtn) searchBtn.textContent = 'Search';
+      const name = `Coordinates (${coords.lat.toFixed(4)}°, ${coords.lng.toFixed(4)}°)`;
+      if (coordsElem) {
+        coordsElem.innerHTML = `<em>Targeting coordinates: ${coords.lat.toFixed(5)}°, ${coords.lng.toFixed(5)}°...</em>`;
+      }
+      this.flyToLocation(coords.lat, coords.lng, name);
+      return;
+    }
+
+    // 2. OpenStreetMap Nominatim Geocoding
+    if (coordsElem) {
+      coordsElem.innerHTML = `<em>Searching for "${q}" via OpenStreetMap geocoding...</em>`;
+    }
+
+    try {
+      if (this.searchAbortController) {
+        this.searchAbortController.abort();
+      }
+      this.searchAbortController = new AbortController();
+
+      const url = `https://nominatim.openstreetmap.org/search?format=jsonv2&q=${encodeURIComponent(q)}&limit=5&addressdetails=1`;
+      const res = await fetch(url, {
+        signal: this.searchAbortController.signal,
+        headers: { 'Accept-Language': 'en' }
+      });
+
+      if (!res.ok) throw new Error(`Geocoding HTTP ${res.status}`);
+
+      const data = await res.json();
+      if (searchBtn) searchBtn.textContent = 'Search';
+
+      if (!data || data.length === 0) {
+        if (coordsElem) {
+          coordsElem.innerHTML = `<span style="color:#f87171;">No location results found for "${q}". Try another query or coordinates.</span>`;
+        }
+        this.clearSearchResults();
+        return;
+      }
+
+      // If 1 result, fly directly
+      if (data.length === 1) {
+        const first = data[0];
+        const lat = parseFloat(first.lat);
+        const lng = parseFloat(first.lon);
+        const parts = first.display_name.split(',');
+        const name = parts.slice(0, 3).join(',').trim();
+        this.flyToLocation(lat, lng, name);
+        this.clearSearchResults();
+        return;
+      }
+
+      // If multiple results, navigate to first immediately and render suggestion dropdown for user refinement
+      const first = data[0];
+      const lat = parseFloat(first.lat);
+      const lng = parseFloat(first.lon);
+      const parts = first.display_name.split(',');
+      const name = parts.slice(0, 3).join(',').trim();
+      this.flyToLocation(lat, lng, name);
+      this.renderSearchResults(data);
+
+    } catch (err) {
+      if (err.name === 'AbortError') return;
+      console.warn('[MapPicker] Search geocoding error:', err);
+      if (searchBtn) searchBtn.textContent = 'Search';
+      if (coordsElem) {
+        coordsElem.innerHTML = `<span style="color:#f87171;">Search request failed. Please check network connection.</span>`;
+      }
+    }
+  }
+
+  renderSearchResults(items) {
+    const container = document.getElementById('map-search-results');
+    if (!container) return;
+
+    if (!items || items.length <= 1) {
+      this.clearSearchResults();
+      return;
+    }
+
+    container.innerHTML = '';
+    container.style.display = 'block';
+
+    const header = document.createElement('div');
+    header.className = 'map-search-results-header';
+    header.textContent = `Found ${items.length} matching locations (click to inspect):`;
+    container.appendChild(header);
+
+    items.forEach(item => {
+      const row = document.createElement('div');
+      row.className = 'map-search-result-item';
+
+      const lat = parseFloat(item.lat);
+      const lng = parseFloat(item.lon);
+      const parts = item.display_name.split(',');
+      const mainTitle = parts[0].trim();
+      const subTitle = parts.slice(1, 4).join(',').trim();
+
+      row.innerHTML = `
+        <span class="msr-icon">📍</span>
+        <div class="msr-text">
+          <div class="msr-title">${mainTitle}</div>
+          <div class="msr-sub">${subTitle} (${lat.toFixed(3)}°, ${lng.toFixed(3)}°)</div>
+        </div>
+      `;
+
+      row.addEventListener('click', () => {
+        const input = document.getElementById('map-search-input');
+        const clearBtn = document.getElementById('map-search-clear');
+        const fullName = `${mainTitle}, ${subTitle}`.trim();
+        if (input) input.value = fullName;
+        if (clearBtn) clearBtn.style.display = 'flex';
+        this.flyToLocation(lat, lng, fullName);
+        this.clearSearchResults();
+      });
+
+      container.appendChild(row);
+    });
+  }
+
+  clearSearchResults() {
+    const container = document.getElementById('map-search-results');
+    if (container) {
+      container.innerHTML = '';
+      container.style.display = 'none';
+    }
   }
 
   applyCurrentSite() {

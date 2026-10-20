@@ -60,8 +60,11 @@ export function initMapPicker() {
         }
       });
       mapPickerInstance.initialize();
-    } else if (mapPickerInstance.map) {
-      setTimeout(() => mapPickerInstance.map.invalidateSize(), 200);
+    } else {
+      if (mapPickerInstance.map) {
+        setTimeout(() => mapPickerInstance.map.invalidateSize(), 200);
+      }
+      mapPickerInstance.bindSearchControls();
     }
   }
 }
@@ -73,6 +76,18 @@ window.archInterop = {
 
   initMap: () => {
     initMapPicker();
+  },
+
+  searchLocation: (query) => {
+    if (mapPickerInstance) {
+      mapPickerInstance.searchLocation(query);
+    }
+  },
+
+  flyToLocation: (lat, lng, name) => {
+    if (mapPickerInstance) {
+      mapPickerInstance.flyToLocation(lat, lng, name);
+    }
   },
 
   detectLocation: () => {

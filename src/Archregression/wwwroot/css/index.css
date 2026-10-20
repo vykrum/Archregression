@@ -731,27 +731,197 @@ body {
   color: var(--text-secondary);
 }
 
-.map-preset-pills {
+/* Map Location Search Toolbar */
+.map-search-toolbar {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.map-search-bar {
+  position: relative;
+  display: flex;
+  align-items: center;
+  flex: 1;
+  background: #111827;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xs);
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+  overflow: hidden;
+}
+
+.map-search-bar:focus-within {
+  border-color: #38bdf8;
+  box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.15);
+}
+
+.map-search-icon {
+  padding: 0 0.55rem;
+  font-size: 0.85rem;
+  opacity: 0.75;
+  pointer-events: none;
+  user-select: none;
+}
+
+.map-search-input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  color: #f8fafc;
+  font-family: var(--font-sans);
+  font-size: 0.78rem;
+  padding: 0.45rem 0.2rem;
+  min-width: 0;
+}
+
+.map-search-input::placeholder {
+  color: #64748b;
+  font-size: 0.74rem;
+}
+
+.map-search-clear-btn {
+  background: transparent;
+  border: none;
+  color: #94a3b8;
+  cursor: pointer;
+  padding: 0.25rem 0.55rem;
+  font-size: 0.75rem;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.15s ease;
+}
+
+.map-search-clear-btn:hover {
+  color: #f1f5f9;
+}
+
+.map-search-submit-btn {
+  border-radius: 0;
+  padding: 0.45rem 0.85rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.map-locate-btn {
+  white-space: nowrap;
+  font-size: 0.75rem;
+  padding: 0.45rem 0.75rem;
+  background: #1e293b;
+  color: #38bdf8;
+  border: 1px solid #334155;
+  transition: all 0.15s ease;
+}
+
+.map-locate-btn:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
+}
+
+.map-search-results {
+  position: relative;
+  z-index: 1000;
+  background: #0f172a;
+  border: 1px solid #334155;
+  border-radius: var(--radius-xs);
+  box-shadow: 0 8px 24px -4px rgba(0, 0, 0, 0.5);
+  margin-bottom: 0.5rem;
+  max-height: 180px;
+  overflow-y: auto;
+  display: none;
+}
+
+.map-search-results-header {
+  padding: 5px 10px;
+  font-size: 0.68rem;
+  font-weight: 600;
+  color: #94a3b8;
+  background: #1e293b;
+  border-bottom: 1px solid #334155;
+  letter-spacing: 0.3px;
+  text-transform: uppercase;
+}
+
+.map-search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 10px;
+  cursor: pointer;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+  transition: background 0.12s ease;
+}
+
+.map-search-result-item:last-child {
+  border-bottom: none;
+}
+
+.map-search-result-item:hover {
+  background: #1e293b;
+}
+
+.msr-icon {
+  font-size: 0.85rem;
+  flex-shrink: 0;
+}
+
+.msr-text {
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.msr-title {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: #f1f5f9;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.msr-sub {
+  font-size: 0.68rem;
+  color: #94a3b8;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  overflow: hidden;
+}
+
+.map-preset-chips {
   display: flex;
   flex-wrap: wrap;
+  align-items: center;
   gap: 0.35rem;
-  margin-bottom: 0.65rem;
+  margin-bottom: 0.55rem;
 }
 
-.map-preset-btn {
-  background: var(--bg-surface);
-  border: 1px solid var(--border-subtle);
-  color: var(--text-secondary);
-  font-size: 0.72rem;
-  padding: 0.25rem 0.55rem;
+.map-chips-label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #64748b;
+  margin-right: 0.15rem;
+}
+
+.map-preset-chip {
+  background: #131d2e;
+  border: 1px solid #24344d;
+  color: #cbd5e1;
+  font-size: 0.7rem;
+  padding: 0.2rem 0.55rem;
   border-radius: var(--radius-xs);
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.map-preset-btn:hover {
-  background: var(--bg-surface-hover);
-  color: #fff;
-  border-color: #3b4455;
+.map-preset-chip:hover {
+  background: #0284c7;
+  color: #ffffff;
+  border-color: #38bdf8;
 }
 
 .map-coords-readout {
@@ -759,6 +929,10 @@ body {
   font-size: 0.72rem;
   color: #60a5fa;
   margin-bottom: 0.5rem;
+  background: #0b0f19;
+  padding: 5px 8px;
+  border-radius: var(--radius-xs);
+  border: 1px solid rgba(56, 189, 248, 0.15);
 }
 
 .map-picker-container {

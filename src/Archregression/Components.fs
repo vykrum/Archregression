@@ -224,21 +224,56 @@ module Components =
                 div {
                     attr.``class`` "modal-body"
                     div {
-                        attr.style "display: flex; gap: 0.6rem; align-items: center; margin-bottom: 0.6rem;"
+                        attr.``class`` "map-search-toolbar"
+                        div {
+                            attr.``class`` "map-search-bar"
+                            span { attr.``class`` "map-search-icon"; "🔍" }
+                            input {
+                                attr.id "map-search-input"
+                                attr.``class`` "map-search-input"
+                                attr.``type`` "text"
+                                attr.placeholder "Search city, address, landmark, or lat, lng (e.g. Zurich, Tokyo, 47.37, 8.54)..."
+                            }
+                            button {
+                                attr.id "map-search-clear"
+                                attr.``class`` "map-search-clear-btn"
+                                attr.``type`` "button"
+                                attr.title "Clear search"
+                                "✕"
+                            }
+                            button {
+                                attr.id "map-search-btn"
+                                attr.``class`` "btn btn-primary map-search-submit-btn"
+                                attr.``type`` "button"
+                                "Search"
+                            }
+                        }
                         button {
-                            attr.``class`` "btn btn-primary"
-                            on.click (fun _ -> dispatch DetectCurrentLocation)
-                            "📍 Detect Current Location"
+                            attr.id "map-locate-btn"
+                            attr.``class`` "btn map-locate-btn"
+                            attr.``type`` "button"
+                            attr.title "Locate via GPS or IP"
+                            "📍 Current Location"
                         }
-                        span {
-                            attr.style "font-size: 0.78rem; color: #94a3b8;"
-                            "Detects GPS / IP location and fetches real satellite elevation grid"
-                        }
+                    }
+                    div {
+                        attr.id "map-search-results"
+                        attr.``class`` "map-search-results"
+                    }
+                    div {
+                        attr.``class`` "map-preset-chips"
+                        span { attr.``class`` "map-chips-label"; "Quick Presets:" }
+                        button { attr.id "preset-zurich"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "🏔️ Zurich" }
+                        button { attr.id "preset-sf"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "🌉 San Francisco" }
+                        button { attr.id "preset-tokyo"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "🗼 Tokyo" }
+                        button { attr.id "preset-stmoritz"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "⛷️ St. Moritz" }
+                        button { attr.id "preset-reykjavik"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "🌋 Reykjavik" }
+                        button { attr.id "preset-amalfi"; attr.``class`` "map-preset-chip"; attr.``type`` "button"; "🌊 Amalfi" }
                     }
                     div {
                         attr.id "map-coords-readout"
                         attr.``class`` "map-coords-readout"
-                        "Click anywhere on map or reposition marker to query real satellite DEM elevation grid."
+                        "Click anywhere on map, search a location, or reposition marker to query real satellite DEM elevation grid."
                     }
                     div {
                         attr.id "map-picker-container"
