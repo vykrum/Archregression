@@ -438,6 +438,21 @@ type ActiveDrawer =
     | AnalyticsDrawer
     | CameraDrawer
 
+/// UI Appearance Theme Mode (Default is Light)
+type ThemeMode =
+    | Light
+    | Dark
+
+    member this.Key =
+        match this with
+        | Light -> "light"
+        | Dark -> "dark"
+
+    static member FromKey (s: string) =
+        match (if isNull s then "" else s.ToLowerInvariant()) with
+        | "dark" -> Dark
+        | _ -> Light
+
 /// Elmish UI Model State
 type Model =
     { Architecture: ArchitecturalParams
@@ -453,7 +468,8 @@ type Model =
       IsOptimizing: bool
       ActiveDrawer: ActiveDrawer
       IsDashboardCollapsed: bool
-      IsParametersCollapsed: bool }
+      IsParametersCollapsed: bool
+      Theme: ThemeMode }
 
 /// Elmish Messages
 type Message =
@@ -499,4 +515,7 @@ type Message =
     | CloseDrawer
     | ToggleDashboard
     | ToggleParameters
+    | ToggleTheme
+    | SetTheme of ThemeMode
+
 

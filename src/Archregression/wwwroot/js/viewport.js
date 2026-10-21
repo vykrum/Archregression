@@ -111,8 +111,13 @@ export class SpatialViewport {
 
     // 1. Scene
     this.scene = new THREE.Scene();
-    this.scene.background = new THREE.Color(0x0a0e17);
-    this.scene.fog = new THREE.FogExp2(0x0a0e17, 0.007);
+    const docTheme = (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme')) || 'light';
+    this.currentTheme = docTheme;
+    const isDark = docTheme === 'dark';
+    const bgHex = isDark ? 0x0a0e17 : 0xeef2f6;
+    const fogDensity = isDark ? 0.007 : 0.005;
+    this.scene.background = new THREE.Color(bgHex);
+    this.scene.fog = new THREE.FogExp2(bgHex, fogDensity);
 
     // 2. Camera
     this.camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1500);
@@ -182,7 +187,12 @@ export class SpatialViewport {
   }
 
   setupLighting() {
-    this.hemiLight = new THREE.HemisphereLight(0xdce7f9, 0x1a2130, 0.75);
+    const isDark = this.currentTheme === 'dark';
+    this.hemiLight = new THREE.HemisphereLight(
+      isDark ? 0xdce7f9 : 0xffffff,
+      isDark ? 0x1a2130 : 0xcfd8dc,
+      isDark ? 0.75 : 0.85
+    );
     this.hemiLight.position.set(0, 80, 0);
     this.scene.add(this.hemiLight);
 
@@ -199,12 +209,48 @@ export class SpatialViewport {
     this.sunLight.shadow.bias = -0.0004;
     this.scene.add(this.sunLight);
 
-    const fillLight = new THREE.DirectionalLight(0x60a5fa, 0.45);
+    const fillLight = new THREE.DirectionalLight(isDark ? 0x60a5fa : 0x93c5fd, 0.45);
     fillLight.position.set(-45, 25, -45);
     this.scene.add(fillLight);
 
     this.updateSunPosition();
   }
+
+  setTheme(theme) {
+    this.currentTheme = theme;
+    const isDark = theme === 'dark';
+    const bgHex = isDark ? 0x0a0e17 : 0xeef2f6;
+    const fogDensity = isDark ? 0.007 : 0.005;
+
+    if (this.scene) {
+      this.scene.background.setHex(bgHex);
+      if (this.scene.fog) {
+        this.scene.fog.color.setHex(bgHex);
+        this.scene.fog.density = fogDensity;
+      }
+    }
+
+    if (this.hemiLight) {
+      if (isDark) {
+        this.hemiLight.color.setHex(0xdce7f9);
+        this.hemiLight.groundColor.setHex(0x1a2130);
+        this.hemiLight.intensity = 0.75;
+      } else {
+        this.hemiLight.color.setHex(0xffffff);
+        this.hemiLight.groundColor.setHex(0xcfd8dc);
+        this.hemiLight.intensity = 0.85;
+      }
+    }
+
+    if (this.studioPlinthGrid && this.environmentGroup) {
+      this.environmentGroup.remove(this.studioPlinthGrid);
+      this.studioPlinthGrid.geometry.dispose();
+      this.studioPlinthGrid = new THREE.GridHelper(50, 50, isDark ? 0x334155 : 0x94a3b8, isDark ? 0x1e293b : 0xcbd5e1);
+      this.studioPlinthGrid.position.y = 0.01;
+      this.environmentGroup.add(this.studioPlinthGrid);
+    }
+  }
+
 
   updateSunPosition() {
     const azimuthRad = THREE.MathUtils.degToRad(this.params.orientation_azimuth + 180);
@@ -936,9 +982,10 @@ export class SpatialViewport {
   }
 
   buildStudioPlinth() {
+    const isDark = this.currentTheme === 'dark';
     const plinthGeo = new THREE.CylinderGeometry(34, 36, 0.4, 64);
     const plinthMat = new THREE.MeshStandardMaterial({
-      color: 0x141822,
+      color: isDark ? 0x141822 : 0xe2e8f0,
       roughness: 0.85,
       metalness: 0.1
     });
@@ -947,9 +994,9 @@ export class SpatialViewport {
     this.terrainMesh.receiveShadow = true;
     this.environmentGroup.add(this.terrainMesh);
 
-    const grid = new THREE.GridHelper(50, 50, 0x334155, 0x1e293b);
-    grid.position.y = 0.01;
-    this.environmentGroup.add(grid);
+    this.studioPlinthGrid = new THREE.GridHelper(50, 50, isDark ? 0x334155 : 0x94a3b8, isDark ? 0x1e293b : 0xcbd5e1);
+    this.studioPlinthGrid.position.y = 0.01;
+    this.environmentGroup.add(this.studioPlinthGrid);
   }
 
   /**

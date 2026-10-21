@@ -18,6 +18,7 @@ export class RegressionAnalytics {
     this.benchmarkData = [];
     this.activeTarget = 'sda_percent';
     this.currentPrediction = null;
+    this.currentTheme = (typeof document !== 'undefined' && document.documentElement.getAttribute('data-theme')) || 'light';
     this.targetMetadata = {
       sda_percent: { name: 'Spatial Daylight Autonomy (sDA 300/50%)', unit: '%', range: [0, 100], r2: 0.964, rmse: 3.42 },
       cooling_load: { name: 'Annual Cooling Energy', unit: 'kWh/m²/yr', range: [20, 145], r2: 0.952, rmse: 4.88 },
@@ -98,6 +99,26 @@ export class RegressionAnalytics {
     }
 
     this.renderAll();
+  }
+
+  setTheme(theme) {
+    this.currentTheme = theme;
+    this.renderAll();
+  }
+
+  getPlotColors() {
+    const isDark = (this.currentTheme === 'dark');
+    return {
+      isDark,
+      plot_bgcolor: isDark ? 'rgba(15, 23, 42, 0.45)' : 'rgba(241, 245, 249, 0.75)',
+      fontColor: isDark ? '#94a3b8' : '#475569',
+      gridColor: isDark ? '#1e293b' : '#e2e8f0',
+      tickColor: isDark ? '#cbd5e1' : '#334155',
+      annotationBg: isDark ? 'rgba(15, 23, 42, 0.85)' : 'rgba(255, 255, 255, 0.95)',
+      annotationBorder: isDark ? '#38bdf8' : '#2563eb',
+      annotationText: isDark ? '#38bdf8' : '#1d4ed8',
+      parityLine: isDark ? '#94a3b8' : '#64748b'
+    };
   }
 
   setTarget(targetKey) {
@@ -188,22 +209,24 @@ export class RegressionAnalytics {
         traces.push(traceActive);
       }
 
+      const colors = this.getPlotColors();
+
       const layout = {
         paper_bgcolor: 'transparent',
-        plot_bgcolor: 'rgba(15, 23, 42, 0.45)',
-        font: { color: '#94a3b8', family: 'Inter, sans-serif', size: 11 },
+        plot_bgcolor: colors.plot_bgcolor,
+        font: { color: colors.fontColor, family: 'Inter, sans-serif', size: 11 },
         margin: { t: 25, r: 20, b: 40, l: 50 },
         showlegend: false,
         xaxis: {
           title: `Actual Simulation (${meta.unit})`,
           range: [minVal, maxVal],
-          gridcolor: '#1e293b',
+          gridcolor: colors.gridColor,
           zeroline: false
         },
         yaxis: {
           title: `Surrogate Prediction (${meta.unit})`,
           range: [minVal, maxVal],
-          gridcolor: '#1e293b',
+          gridcolor: colors.gridColor,
           zeroline: false
         },
         annotations: [
@@ -216,9 +239,9 @@ export class RegressionAnalytics {
             yanchor: 'top',
             text: `<b>R² = ${meta.r2}</b><br>RMSE = ${meta.rmse} ${meta.unit}`,
             showarrow: false,
-            font: { color: '#38bdf8', size: 11 },
-            bgcolor: 'rgba(15, 23, 42, 0.85)',
-            bordercolor: '#38bdf8',
+            font: { color: colors.annotationText, size: 11 },
+            bgcolor: colors.annotationBg,
+            bordercolor: colors.annotationBorder,
             borderwidth: 1,
             borderpad: 6
           }
@@ -239,13 +262,20 @@ export class RegressionAnalytics {
     if (!this.shapContainer) return;
     const rankings = this.shapRankings[this.activeTarget] || [];
     const meta = this.targetMetadata[this.activeTarget];
+    const colors = this.getPlotColors();
 
     if (window.Plotly) {
       const labels = rankings.map(r => r.feature).reverse();
       const scores = rankings.map(r => r.score).reverse();
 
       // Dynamic color based on whether feature is primary driver
-      const barColors = scores.map(s => s > 0.25 ? '#38bdf8' : s > 0.10 ? '#818cf8' : '#475569');
+      const barColors = scores.map(s => {
+        if (colors.isDark) {
+          return s > 0.25 ? '#38bdf8' : s > 0.10 ? '#818cf8' : '#475569';
+        } else {
+          return s > 0.25 ? '#2563eb' : s > 0.10 ? '#4f46e5' : '#94a3b8';
+        }
+      });
 
       const trace = {
         x: scores,
@@ -254,7 +284,7 @@ export class RegressionAnalytics {
         orientation: 'h',
         marker: {
           color: barColors,
-          line: { color: 'rgba(255, 255, 255, 0.15)', width: 1 }
+          line: { color: colors.isDark ? 'rgba(255, 255, 255, 0.15)' : 'rgba(0, 0, 0, 0.08)', width: 1 }
         },
         hovertemplate: '%{y}: %{x:.3f} mean |SHAP|<extra></extra>'
       };
@@ -262,15 +292,15 @@ export class RegressionAnalytics {
       const layout = {
         paper_bgcolor: 'transparent',
         plot_bgcolor: 'transparent',
-        font: { color: '#94a3b8', family: 'Inter, sans-serif', size: 10 },
+        font: { color: colors.fontColor, family: 'Inter, sans-serif', size: 10 },
         margin: { t: 15, r: 25, b: 35, l: 150 },
         xaxis: {
           title: 'Mean |SHAP Value| (Impact Magnitude)',
-          gridcolor: '#1e293b',
+          gridcolor: colors.gridColor,
           zeroline: false
         },
         yaxis: {
-          tickfont: { color: '#cbd5e1' }
+          tickfont: { color: colors.tickColor }
         }
       };
 
@@ -288,6 +318,7 @@ export class RegressionAnalytics {
     if (!this.residualContainer) return;
     const meta = this.targetMetadata[this.activeTarget];
     const data = this.benchmarkData;
+    const colors = this.getPlotColors();
 
     const actualKey = `actual_${this.activeTarget}`;
     const predKey = `pred_${this.activeTarget}`;
@@ -299,27 +330,27 @@ export class RegressionAnalytics {
         type: 'histogram',
         nbinsx: 24,
         marker: {
-          color: 'rgba(56, 189, 248, 0.65)',
-          line: { color: '#38bdf8', width: 1 }
+          color: colors.isDark ? 'rgba(56, 189, 248, 0.65)' : 'rgba(37, 99, 235, 0.65)',
+          line: { color: colors.isDark ? '#38bdf8' : '#2563eb', width: 1 }
         },
         hovertemplate: 'Residual: %{x:.2f}<br>Count: %{y}<extra></extra>'
       };
 
       const layout = {
         paper_bgcolor: 'transparent',
-        plot_bgcolor: 'rgba(15, 23, 42, 0.45)',
-        font: { color: '#94a3b8', family: 'Inter, sans-serif', size: 10 },
+        plot_bgcolor: colors.plot_bgcolor,
+        font: { color: colors.fontColor, family: 'Inter, sans-serif', size: 10 },
         margin: { t: 20, r: 20, b: 35, l: 45 },
         xaxis: {
           title: `Residual Error (y - Å·) [${meta.unit}]`,
-          gridcolor: '#1e293b',
+          gridcolor: colors.gridColor,
           zeroline: true,
           zerolinecolor: '#f43f5e',
           zerolinewidth: 2
         },
         yaxis: {
           title: 'Frequency',
-          gridcolor: '#1e293b'
+          gridcolor: colors.gridColor
         },
         shapes: [
           {
@@ -340,6 +371,7 @@ export class RegressionAnalytics {
       this.renderFallbackResidualHTML(residuals, meta);
     }
   }
+
 
   renderFallbackParitySVG(meta, xVals, yVals, minVal, maxVal) {
     const w = 380;

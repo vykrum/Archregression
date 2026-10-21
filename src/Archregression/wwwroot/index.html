@@ -25,8 +25,45 @@
   <!-- Leaflet CSS for Interactive Global Map (Vendored Locally) -->
   <link rel="stylesheet" href="css/leaflet.css">
 
-  <!-- Dark Studio Design System CSS -->
-  <link rel="stylesheet" href="css/index.css?v=2">
+  <!-- Theme Initialization: Default is Light Mode (Not dark mode) -->
+  <script>
+    try {
+      var savedTheme = localStorage.getItem('arch_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', savedTheme);
+    } catch (e) {
+      document.documentElement.setAttribute('data-theme', 'light');
+    }
+  </script>
+
+  <!-- Studio CAD Design System CSS -->
+  <link rel="stylesheet" href="css/index.css?v=3">
+
+  <style>
+    .app-loader {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      background: #f8fafc;
+      color: #0f172a;
+      font-family: 'JetBrains Mono', monospace;
+      transition: background-color 0.2s, color 0.2s;
+    }
+    .app-loader-icon { font-size: 2.5rem; margin-bottom: 1rem; }
+    .app-loader-title { font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem; color: #2563eb; }
+    .app-loader-sub { font-size: 0.85rem; color: #64748b; }
+    [data-theme="dark"] .app-loader {
+      background: #0a0e17;
+      color: #e6eaf2;
+    }
+    [data-theme="dark"] .app-loader-title {
+      color: #38bdf8;
+    }
+    [data-theme="dark"] .app-loader-sub {
+      color: #94a3b8;
+    }
+  </style>
 
   <!-- External Libraries -->
   <script src="js/leaflet.js"></script>
@@ -35,10 +72,10 @@
 <body>
   <!-- F# Bolero WebAssembly Mount Point -->
   <div id="main">
-    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; background: #0a0e17; color: #38bdf8; font-family: 'JetBrains Mono', monospace;">
-      <div style="font-size: 2.5rem; margin-bottom: 1rem;">🏛️</div>
-      <div style="font-size: 1.1rem; font-weight: 600; margin-bottom: 0.5rem;">Archregression.Bolero</div>
-      <div style="font-size: 0.85rem; color: #94a3b8;">Loading F# WebAssembly & .NET 10 Runtime...</div>
+    <div class="app-loader">
+      <div class="app-loader-icon">🏛️</div>
+      <div class="app-loader-title">Archregression.Bolero</div>
+      <div class="app-loader-sub">Loading F# WebAssembly & .NET Runtime...</div>
     </div>
   </div>
 

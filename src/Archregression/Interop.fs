@@ -99,6 +99,21 @@ module Interop =
             if not (isNull js) then
                 js.InvokeVoidAsync("archInterop.resizeViewport") |> ignore
 
+        member this.SetTheme(theme: string) : unit =
+            if not (isNull js) then
+                js.InvokeVoidAsync("archInterop.setTheme", theme) |> ignore
+
+        member this.GetThemeAsync() : Task<string> =
+            task {
+                if isNull js then return "light"
+                else
+                    try
+                        let! t = js.InvokeAsync<string>("archInterop.getTheme").AsTask()
+                        return if String.IsNullOrWhiteSpace(t) then "light" else t
+                    with _ ->
+                        return "light"
+            }
+
 
         member this.ParseSiteFromJson(jsonStr: string) : SiteLocation option =
             try

@@ -23,10 +23,12 @@ const targetMap = {
 };
 
 export function initViewport() {
+  const currentTheme = document.documentElement.getAttribute('data-theme') || 'light';
   const container = document.getElementById('viewport-3d');
   if (container && !viewportInstance) {
     try {
       viewportInstance = new SpatialViewport(container);
+      viewportInstance.setTheme(currentTheme);
     } catch (e) {
       console.warn('[Interop] Viewport init error:', e);
     }
@@ -43,6 +45,7 @@ export function initViewport() {
         shap: shapEl,
         residual: residualEl
       });
+      analyticsInstance.setTheme(currentTheme);
       analyticsInstance.initialize();
     } catch (e) {
       console.warn('[Interop] Analytics init error:', e);
@@ -210,8 +213,30 @@ window.archInterop = {
     if (viewportInstance) {
       setTimeout(() => viewportInstance.onWindowResize(), 100);
     }
+  },
+
+  setTheme: (theme) => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('arch_theme', theme);
+    } catch (_) {}
+    if (viewportInstance) {
+      viewportInstance.setTheme(theme);
+    }
+    if (analyticsInstance) {
+      analyticsInstance.setTheme(theme);
+    }
+  },
+
+  getTheme: () => {
+    try {
+      return localStorage.getItem('arch_theme') || document.documentElement.getAttribute('data-theme') || 'light';
+    } catch (_) {
+      return document.documentElement.getAttribute('data-theme') || 'light';
+    }
   }
 };
+
 
 
 // Retry initialization until Blazor mounts DOM elements

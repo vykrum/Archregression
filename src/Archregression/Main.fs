@@ -37,7 +37,8 @@ type MainComponent() =
                   IsOptimizing = false
                   ActiveDrawer = NoDrawer
                   IsDashboardCollapsed = false
-                  IsParametersCollapsed = false }
+                  IsParametersCollapsed = false
+                  Theme = Light }
 
             let detectCmd =
                 Cmd.OfTask.perform
@@ -47,7 +48,13 @@ type MainComponent() =
                      | Some site -> ApplySiteFromMap site
                      | None -> CloseMapModal)
 
-            initialModel, detectCmd
+            let syncThemeCmd =
+                Cmd.OfTask.perform
+                    (fun () -> bridge.GetThemeAsync())
+                    ()
+                    (fun t -> SetTheme (ThemeMode.FromKey t))
+
+            initialModel, Cmd.batch [ detectCmd; syncThemeCmd ]
 
         let update msg model =
             match msg with
@@ -322,6 +329,15 @@ type MainComponent() =
                 let next = not model.IsParametersCollapsed
                 bridge.ResizeViewport()
                 { model with IsParametersCollapsed = next }, Cmd.none
+
+            | ToggleTheme ->
+                let next = match model.Theme with Light -> Dark | Dark -> Light
+                bridge.SetTheme(next.Key)
+                { model with Theme = next }, Cmd.none
+
+            | SetTheme t ->
+                bridge.SetTheme(t.Key)
+                { model with Theme = t }, Cmd.none
 
 
 

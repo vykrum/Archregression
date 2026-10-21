@@ -48,6 +48,14 @@ module Components =
                     attr.id "btn-export-glb"
                     "Export GLB"
                 }
+                button {
+                    attr.``class`` "btn btn-theme-toggle"
+                    attr.title "Toggle Light / Dark mode"
+                    on.click (fun _ -> dispatch ToggleTheme)
+                    match model.Theme with
+                    | Light -> "🌙 Dark"
+                    | Dark -> "☀️ Light"
+                }
                 a {
                     attr.``class`` "btn desktop-only"
                     attr.href "https://huggingface.co/datasets/vykrum/arch-regression-dataset"
@@ -407,6 +415,15 @@ module Components =
                         dispatch TogglePlantTreeMode
                         dispatch CloseDrawer)
                     if model.PlantTreeMode then "🌳 Planting Active (Tap Ground)" else "🌳 Plant Tree Mode"
+                }
+                div { attr.``class`` "camera-sheet-subtitle"; attr.style "margin-top: 0.85rem;"; "STUDIO APPEARANCE" }
+                button {
+                    attr.``class`` "btn"
+                    attr.style "width: 100%; justify-content: center;"
+                    on.click (fun _ -> dispatch ToggleTheme)
+                    match model.Theme with
+                    | Light -> "🌙 Switch to Dark Mode"
+                    | Dark -> "☀️ Switch to Light Mode"
                 }
             }
         }
